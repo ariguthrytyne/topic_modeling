@@ -1,0 +1,34 @@
+===============
+TOPIC MODELLING 
+===============
+
+(1) UN-Resoltuib
+
+(2) 80% of the time of aData Scientist (Understanding & Preparing the )
+
+(3) Shit in Shit Out
+
+(4) CRISP-DM
+
+(5) Data Understanding (Data Exploration, Univariate Analysis, Multivariate Analysis,
+                        correlation, variance, ...)
+
+(6) Data Preparation: cleaning, cleansing, missing variable treatment --> MCAR, features engineering, ...)
+
+(7) Modelization: success of a student = f(age, marital satus, sports, education level of parents, gender, ...)
+
+(8) Representative Sample
+
+(9) Confidence Intervalle
+
+(10) Basic Chapters (Introduction) --> für den Bericht??
+
+(11) Learning (70-90%) and test sample (30-10%)
+
+(12) unsupervised learning (for example clustering) - supervised learning - semi-supervised learning
+
+(13)
+
+
+
+
