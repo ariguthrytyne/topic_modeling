@@ -62,7 +62,6 @@
 #' @export
  
 
-
 # 1. preparing environment ----
 
 # 1.1 clearing current R-environment
