@@ -1,0 +1,151 @@
+#==========================
+# (6) RECCURENT RESOLUTIONS ####
+#==========================
+
+
+# ------------------------------------------------------------------------------------
+# similar titles ? or more precisely: similar resolution_full_texts?
+# recurrent resolutions are those that are regularly discusses during
+# the plenum un-sessions:
+#
+# In this first phase we will explore the similarity between the resolutions based
+#
+# Objectives of our analysis:
+#
+#  1- create column containing for each resolution the list of related resolutions
+#
+#  2- create lda/lsa model
+#
+#  2- create a network-analysis graph (one resolution connected to her children --> )
+#
+#  3-  
+#
+#  4- 
+#
+#
+# --- steps --
+#
+#  1- load data 
+#
+#  2- order resolutions by date   
+#
+#  3- get number of resolutions per date(/month/year)
+#
+#  4- select a single resolution and find all related resolutions
+#
+#  5- draw the network
+# -----------------------------------------------------------------------------
+
+
+# ------------------------------  
+# (61) LOADING REQUIRED PACKAGES ####
+# ------------------------------
+
+library(magrittr)
+library(dplyr)
+library(quanteda)
+library(quanteda.textstats)
+library(doParallel)
+library(foreach)
+library(future)
+library(future.apply)
+
+
+# --------------------------  
+# (62) LOADING REQUIRED DATA ####
+# --------------------------
+
+# getting the required data (resolution data) from a local db (connection issue with )
+message("--- loading all available resolution full text data : ---")
+resolution_data_fulltext <- readRDS(file='./data/resolution_data_fulltext.rds')
+
+# converting VoteDate to date format
+resolution_data_fulltext$VoteDate <- lubridate::as_date(resolution_data_fulltext$VoteDate)
+
+# ordering resolution data frame by VoteDate
+resolution_data_fulltext <- resolution_data_fulltext %>%
+  arrange(VoteDate)
+
+
+# -------------------------------------------------------  
+# (63) CREATING A FUNCTION TO CALCULATE SIMILARITY SCORES ####
+# -------------------------------------------------------
+
+# creating a function to calculate similarity scores a single resolution
+calculate_similarity_score <- function(j){
+  
+  # getting the title of the other resolution
+  res_other_title <- temp_df$TitleofResolution[j]
+  res_other_id <- temp_df$Hyperlink[j]
+  
+  # generating appropriate tokens
+  dfmat <- quanteda::corpus(c(res_title, res_other_title)) %>%
+    tokens(remove_punct=TRUE) %>%
+     tokens_wordstem(language="en") %>%
+      tokens_remove(stopwords("en")) %>%
+       tokens_tolower()  %>%   
+        dfm()
+  
+  # evaluating the similarity between the two titles
+  sim <- quanteda.textstats::textstat_simil(dfmat['text1',] , dfmat['text2',], method = "cosine", margin = "documents")
+  
+  # returning required values
+  return(as.numeric(sim))
+}
+
+
+# ----------------------------------------------------------  
+# (64) CREATING A FUNCTION TO CLASSIFY RECURRENT RESOLUTIONS ####
+# ----------------------------------------------------------
+
+recurrent_resolutions <- function(i){
+  
+  # selecting a single resolution
+  res_id <<- resolution_data_fulltext$Hyperlink[i]         # "A/RES/55/49" # "A/RES/62/180"
+  res_title <<- resolution_data_fulltext$TitleofResolution[i]
+  
+  print("Inside recurrent_resolutions")
+  print(environment())
+  print(ls())
+  
+  # subsetting the data frame
+  temp_df <<-  resolution_data_fulltext %>%
+    filter(Hyperlink != res_id)
+
+  # defining vectors to contain results of similarity scores calculation
+  nbr_rows2 <<- nrow(temp_df)
+  indices_scores <<- 1:nbr_rows2
+  similarity_scores <<- rep(0, nbr_rows2)
+
+  # calculating required similarity scores (title comparison)
+  plan(multisession)
+  ptm <- proc.time()
+  similarity_scores <-  furrr::future_map_dbl(indices_scores, calculate_similarity_score)
+  print(proc.time()-ptm)
+
+  # decide if the resolution is recurrent or not
+  ind <- which(similarity_scores > 0.7)
+  recurrent_class <- ifelse(length(ind) > 0, 1,0)
+
+  return(recurrent_class)
+
+}
+
+
+# ----------------------------------------------  
+# (65) CLASSIFYING RECURRENT RESOLUTIONS (furrr) ####
+# ----------------------------------------------
+
+# initializing required parameters
+nbr_rows <- nrow(resolution_data_fulltext)
+nbr_rows <- 100
+recurrent_res <- rep(NA, nbr_rows)
+
+# getting the required classes
+future::plan(multisession)
+ptm <- proc.time()
+recurrent_res <- furrr::future_map_dbl(indices_scores, recurrent_resolutions)
+print(proc.time()-ptm)
+
+
+

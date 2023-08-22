@@ -1,0 +1,305 @@
+---
+title: "meta data and xm comparison"
+author: "Aggie"
+date: "5/3/2021"
+output: html_document
+---
+
+```{r}
+library(magrittr)
+library(dplyr)
+library(pdftools)
+library(rvest)
+library(stringr)
+library(tm)
+library(utils)
+
+message("--- loading all available resolution full text data : ---")
+resolution_data_fulltext_df <- readRDS(file='./data/resolution_data_fulltext.rds')
+head(resolution_data_fulltext_df)
+
+typeof(resolution_data_fulltext_df$VoteDate) # character
+
+resolution_data_fulltext_df$VoteDate <- lubridate::as_date(resolution_data_fulltext_df$VoteDate)
+typeof(resolution_data_fulltext_df$VoteDate) #  now a double
+
+
+resolution_data_fulltext_df <- resolution_data_fulltext_df %>%
+  arrange(VoteDate)
+head(resolution_data_fulltext_df) # 1995-04-13 is earliest date
+max(resolution_data_fulltext_df$VoteDate) # 2020-09-11 is latest or most recent date
+
+# getting first page of first row 
+title1 <- resolution_data_fulltext_df$TitleofResolution[[1]]
+text1 <- resolution_data_fulltext_df$ResolutionFullText[[1]]
+# getting the title of this page 
+
+
+
+# getting resID
+
+#-----------------------------------------------------------------------------------------------------------------------------------
+resolution_data_2 <- readRDS(file='./data/resolution_data.rds')
+head(resolution_data_2)
+class(resolution_data_2)
+
+ind <- which(is.na(resolution_data_2$URL) == TRUE)
+length(ind) # 15
+
+resolution_data_missing_url_2  <- resolution_data_2[ind, ]
+View(resolution_data_missing_url_2)
+
+# getting only resolutions with given urls
+resolution_data_2  <- resolution_data_2[-ind, ]
+View(resolution_data_2)
+
+
+
+# resolutions with same document but just different sections
+resolutions_same_doc <- resolution_data_2$Hyperlink %>% grep('\\[.*?\\]', ., value = TRUE) # 83 Hyperlinks have same document
+View(resolutions_same_doc)
+
+
+
+res_doc_same <- which(resolution_data_2$Hyperlink %in% resolutions_same_doc) # row numbers for documemts with same document
+resolution_data_same_doc <- resolution_data_2[res_doc_same, ]
+
+resolution_data_same_doc<- resolution_data_same_doc %>%
+  arrange(Hyperlink)
+View(resolution_data_same_doc)
+
+# adding and removing some rows from resolution data same doc
+
+#cleaned_reso_same_doc <- resolution_data_same_doc[-c(2, 3:7, 9, 10, 12:14, 15, 17, 18, 20:41, 42:47, 49, 50, 52, 54:57, 59:75, 77, 78, 80, 83),]
+
+cleaned_to_remove_same_doc2 <- resolution_data_same_doc[c(2, 4:8, 10:15, 17, 19:41, 43:49, 51, 52, 54, 57:75, 77, 79, 81, 83),]
+cleaned_to_remove_same_doc3 <- which(resolution_data_2$Hyperlink %in% cleaned_to_remove_same_doc2$Hyperlink)
+# removing these rows because give problems in checking if title is in what i specify in the loop below
+resolution_data_6 <- resolution_data_2[-cleaned_to_remove_same_doc3, ]
+
+
+
+resolution_data_6$VoteDate <- lubridate::as_date(resolution_data_6$VoteDate)
+resolution_data_6 <- resolution_data_6 %>%
+  arrange(VoteDate)
+
+
+class(resolution_data_6$VoteDate)
+
+
+#===================================================================
+# (2) WEB_SCRAPING RESOLUTION FULL TEXT FROM THE GIVEN RESOLUTION_URL ####
+#===================================================================
+
+# initializing helpers variables (results, ...)
+
+resolution_data_6$NumPages <- rep(NA, nrow(resolution_data_6))
+resolution_data_6$pdfTitle_meta_info <- rep(NA, nrow(resolution_data_6))
+resolution_data_6
+nrows_10 <- 5
+
+
+n_rows <- nrow(resolution_data)
+
+
+res_fulltext_2 <- rep(NA, nrows_10)  # n_rows <- 5
+res_nbr_pages_2 <- rep(NA, nrows_10)
+unique_en_pdf_2 <- rep(TRUE, nrows_10)
+#------------------------------------------------------------------------------------------------------
+
+
+
+set.seed(345)
+
+# grouping by year
+
+year_grouped_data <- resolution_data_6 %>% group_by(YEAR)
+summary_num_docs_each_year <- year_grouped_data %>% 
+  summarise(Count = n()) 
+
+sample_year_groups <- rquery::local_td(year_grouped_data) %>%
+  rquery::pick_top_k(., 
+             k = 5,
+             partitionby = "YEAR",
+             orderby = "YEAR")
+
+sampled_by_year_data <- rqdatatable::ex_data_table(sample_year_groups)
+head(sampled_by_year_data)
+
+
+# creating empty boolean column with NAs
+matched_title <- rep(NA, nrow(sampled_by_year_data))
+#sampled_by_year_data$string7_10 <- rep(NA, nrow(sampled_by_year_data))
+
+# trying loop on the sampled data 
+for(i in 1:nrow(sampled_by_year_data)){
+   print(paste0("running iteration number: ", i))
+  
+  tryCatch({
+    
+    # get the url of eh considered res
+    url_global_3 <- sampled_by_year_data$URL[i]
+    print(url_global_3)
+    
+    
+    # get vote date of each doc
+    print(sampled_by_year_data$VoteDate[i])
+    
+    # reading the html of the given resolution into R
+    html_r_3 <- read_html(url_global_3) %>%
+     html_nodes('a') %>%
+      html_attr('href') %>%
+       grep('EN.pdf', ., value=TRUE)
+
+    print(html_r_3)
+    if(length(html_r_3) == 1){
+       # constructing the full pdf-url
+      base_url_3 <- "https://digitallibrary.un.org"
+      url_pdf_3 <- paste0(base_url_3, html_r_3)
+      print(url_pdf_3)
+      info_pdf_3 <- pdf_info(url_pdf_3)
+      info_pdf_3$pages
+      #resolution_data_2$NumPages[i] <- info_pdf$pages
+      
+      print("number of pages:")
+      print(info_pdf_3$pages)
+      #sprintf("number of pages: %s", resolution_data_2$NumPages[i])
+      
+     sampled_by_year_data$NumPages[i] <- info_pdf_3$pages
+      #resolution_data_2$resolution_pdf_info [i] <- info_pdf[i]
+      
+      # reading the pdf-content into R
+      en_pdf_data_3 <- pdf_text(url_pdf_3) 
+      #print(en_pdf_data_2) # this comes back as one long string
+      
+      # splitting string into lines in order to give a data structure that is perhaps better to analyze . using strsplit
+      split_string_3 <- en_pdf_data_3 %>%
+        strsplit(split = "\n")
+      location_title <- split_string_3[[1]][6:11]
+      
+      
+      location_title <- stringr::str_squish(location_title) 
+      location_title <- paste(location_title, collapse = ' ')
+      #sampled_by_year_data$string7_10[i] <- location_title
+      print(location_title)
+      
+      #print(split_string_3[[1]][8])
+      #matched_title <- grepl(sampled_by_year_data$TitleofResolution[i], location_title, fixed = TRUE )
+      
+      matched_title[i] <- sjmisc::str_contains(location_title, sampled_by_year_data$TitleofResolution[i], ignore.case = TRUE)
+      print(matched_title[i])
+      print(sampled_by_year_data$TitleofResolution[i])
+      
+      print("-------------------------------------------------------------")
+      
+      # storing the number of pages of the pdf-doc
+      #res_nbr_pages_2[i] <- length(en_pdf_data_2) 
+      #print(res_nbr_pages_2)
+      
+      
+      # cleaning the loaded text data by removing multiple spaces, tabs
+      
+    }
+  
+  }, error=function(e){cat("ERROR :",conditionMessage(e), "\n")})
+  
+}
+sampled_by_year_data$matchedTitle <- matched_title
+sampled_by_year_data$pdfTitle_meta_info <- location_title
+
+year_grouped_data %>% ungroup()
+
+#--------------------------------------------------------------------------------------------------------
+
+
+#==========================================================================================
+# checking structure for title for years 1995 to 2000
+#==========================================================================================
+
+
+for(i in 1:nrows_10){
+   print(paste0("running iteration number: ", i))
+  
+  tryCatch({
+    
+    # get the url of eh considered res
+    url_global_2 <- resolution_data_2$URL[i]
+    print(url_global_2)
+    
+    
+    # get vote date of each doc
+    print(resolution_data_2$VoteDate[i])
+    
+    # reading the html of the given resolution into R
+    html_r_2 <- read_html(url_global_2) %>%
+     html_nodes('a') %>%
+      html_attr('href') %>%
+       grep('EN.pdf', ., value=TRUE)
+
+    print(html_r_2)
+    if(length(html_r_2) == 1){
+       # constructing the full pdf-url
+      base_url_2 <- "https://digitallibrary.un.org"
+      url_pdf_2 <- paste0(base_url_2, html_r_2)
+      print(url_pdf_2)
+      info_pdf <- pdf_info(url_pdf_2)
+      info_pdf$pages
+      #resolution_data_2$NumPages[i] <- info_pdf$pages
+      
+      print("number of pages:")
+      print(info_pdf$pages)
+      #sprintf("number of pages: %s", resolution_data_2$NumPages[i])
+      
+     resolution_data_2$NumPages[i] <- info_pdf$pages
+      #resolution_data_2$resolution_pdf_info [i] <- info_pdf[i]
+      
+      # reading the pdf-content into R
+      en_pdf_data_2 <- pdf_text(url_pdf_2) 
+      #print(en_pdf_data_2) # this comes back as one long string
+      
+      # splitting string into lines in order to give a data structure that is perhaps better to analyze . using strsplit
+      split_string <- en_pdf_data_2 %>%
+        strsplit(split = "\n")
+      print(split_string[[1]][7:10])
+     # print(split_string[[1]][8])
+      
+      
+      
+      # storing the number of pages of the pdf-doc
+      #res_nbr_pages_2[i] <- length(en_pdf_data_2) 
+      #print(res_nbr_pages_2)
+      
+      # cleaning the loaded text data by removing multiple spaces, tabs
+      
+    }
+  
+  }, error=function(e){cat("ERROR :",conditionMessage(e), "\n")})
+  
+}
+
+      
+
+
+
+
+
+
+
+
+
+
+  
+#______________________________________________________________________________________________________
+
+# Adding the extracted texts to the resolution data frame
+resolution_data_fulltext <-  resolution_data
+resolution_data_fulltext$ResolutionFullText <-  res_fulltext
+resolution_data_fulltext$ReolutionNumberofPages <- res_nbr_pages
+resolution_data_fulltext$ResolutionUniqueEnglishVersion <-  unique_en_pdf
+
+
+
+
+
+
+```
