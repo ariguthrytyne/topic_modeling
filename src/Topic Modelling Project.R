@@ -7,11 +7,13 @@
 library(tidyverse)
 library(tidytext)
 library(magrittr)
+library(dplyr)
 library(SnowballC)
 library(tm)
 
+resolution_data_text <- readRDS("/Users/ryan/Library/CloudStorage/OneDrive-Personal/Ryan Aaron TchouakeÌ/Business/Kaeyros Analytics/Topic Modeling Project/resolution_data_fulltext.rds")
 resolution_data_text <- readRDS("C:/Users/Ryan Tchouake/OneDrive/Ryan Aaron Tchouaké/Business/Kaeyros Analytics/Topic Modeling Project/resolution_data_fulltext.rds")
-
+resolution_data_text <- readRDS("C:/Users/Ryan/OneDrive/Ryan Aaron TchouakÃ©/Business/Kaeyros Analytics/Topic Modeling Project/resolution_data_fulltext.rds")
 
 
 ### OVERVIEW
@@ -59,7 +61,7 @@ TidyResolutionText_II <- ResolutionText %>%
 
 TidyResolutionTitle <- ResolutionTitle %>%
   unnest_tokens(word, ResolutionFullTITEL)
-# getting a dataframe tokenized by total words used in the resolutions
+# getting a data frame tokenized by total words used in the resolutions
 
 
 
@@ -71,11 +73,16 @@ library(quanteda)
 # to do Lemmatization
 install.packages("textstem")
 library(textstem)
-
 # e.g.
 lemmatize_words(c("run", "ran", "running"))
+
 lemmatize_words(c("african", "africa", "afric"))
-tokens_replace()
+lemmatize_strings(c("african", "africa", "afric"))
+
+wordStem(c("african", "africa", "afric"))
+stem_words(c("african", "africa", "afric"))
+
+tokens_replace(TidyResolutionText, pattern = c("african", "africa", "afric"), replacement = "africa")
 
 
 custom_stopwords1 <- add_row(stop_words, word = as.character(grep("\\d+", TidyResolutionText$word, value = T)), lexicon = "custom")
@@ -89,23 +96,32 @@ CleanResoulution_I <- TidyResolutionText %>%
   
 
 # Still too many words with little meaning, so so revision of the stop words
-add_words1 <- c("unit", "union", "global", "countri", "support", "includ", "resolut", "decemb","septemb", "right", 
-                "organ", "intern", "assembli", "note", "zone", "nation", "govern", "refer", "main", "octob",
-                "novemb", "session","continu", "report", "implement", "confer", "programm", "gener", "secretari",
-                "üzümcü", "yuzhmorgeologiya")
+add_words1 <- c("unite", "union", "global", "country", "support", "include", "resolution", "december","september", "right", 
+                "organ", "international", "assembly", "note", "zone", "nation", "government", "governmental", "referece", "main", "october",
+                "november", "session", "continue", "report", "implement", "confer", "programm", "gener", "secretary",
+                "?z?mc?", "yuzhmorgeologiya", "conference", "recall", "programme", "relevant", "call", "res", "conf", "corr",
+                "procedure", "iv", "general's", "preference", "convention", "organization", "e's", "e.gv", "eel",
+                "implementation", "committee", "declaration", "fifty")
+
+c("unit", "union", "global", "countri", "support", "includ", "resolut", "decemb","septemb", "right", 
+  "organ", "intern", "assembli", "note", "zone", "nation", "govern", "refer", "main", "octob",
+  "novemb", "session","continu", "report", "implement", "confer", "programm", "gener", "secretari",
+  "?z?mc?", "yuzhmorgeologiya")
 custom_stopwords2 <- add_row(custom_stopwords1, word = add_words1, lexicon = "custom")
 
 CleanResoulution_II <- CleanResoulution_I %>%
-  mutate(word = wordStem(word)) %>%
+  #mutate(word = wordStem(word)) %>%
   anti_join(custom_stopwords2)
 
 
 # how often a term appears in total
 WordAppearance <- CleanResoulution_II %>%
-  count(word, sort = T)
+  dplyr::count(word, sort = T)
+
 summary(WordAppearance$n)
+
 # check words that are not part of our alphabet 
-grep("[^A-Za-zñéáãúóoís'._]", WordAppearance$word, value = T)
+grep("[^A-Za-z??????o?s'._]", WordAppearance$word, value = T)
 # check for links with www.
 add_words2 <- grep("www\\.", WordAppearance$word, value = T)
 
@@ -113,8 +129,7 @@ custom_stopwords3 <- add_row(custom_stopwords2, word = add_words2 , lexicon = "c
 
 # filter these
 CleanResoulution_III <- CleanResoulution_II %>%
-  filter(grepl("[A-Za-zñéáãúóoís']", word)) %>%
-  mutate(word = wordStem(word)) %>%
+  filter(grepl("[A-Za-z??????o?s']", word)) %>%
   anti_join(custom_stopwords3)
 
 
@@ -134,12 +149,14 @@ SelectedWords <- Word_Year %>%
 
 # recheck the word appearance
 WordAppearance <- CleanResoulution_III %>%
-  count(word, sort = T) %>%
+  dplyr::count(word, sort = T) %>%
   mutate(word = fct_reorder(word,n))
 # to get as plot the frequency sorted by size
 
 summary(WordAppearance$n)
 var(WordAppearance$n)
+# words that appears only one time (spelling mistakes)
+WordAppearance$word[WordAppearance$n == 1]
 
 
 
@@ -205,8 +222,7 @@ wordcloud(
   max.words = 50,
   ordered.colors = T,
   colors = rep(c("red", "blue", "orange", "purple", "green"), 20),
-  title = "Top Words in the Resolutions"
-)
+  title = "Top Words in the Resolutions")
 
 # 2020
 # repeated check of the most actual terms
@@ -220,8 +236,7 @@ wordcloud(
   max.words = 50,
   ordered.colors = T,
   colors = rep(c("red", "blue", "orange", "black", "green"), 10),
-  title = "Top Words in the Resolution of 2020"
-)
+  title = "Top Words in the Resolution of 2020")
 
 
 
@@ -231,14 +246,17 @@ wordcloud(
 SentimentResolutionWord <- WordAppearance %>%
   inner_join(get_sentiments("nrc"))
 
+SentimentResolutionWord <- WordAppearance %>%
+  inner_join(get_sentiments("loughran")) # or afinn and bing
+
 SentimentWordCounts <- SentimentResolutionWord %>%
   group_by(sentiment) %>%
-  slice_max(n, n = 10) 
+  slice_max(n, n = 20) 
 
 ggplot(
   SentimentWordCounts, aes(x = word, y = n, fill = sentiment)) + 
   geom_col(show.legend = F) +
-  facet_wrap(~ sentiment, scales = "free_y") +
+  facet_wrap(~sentiment, scales = "free_y") +
   coord_flip() +
   labs(title = "Sentiment Word Count", x = "Words")
 # bar chart for each mood (from nrc) with the top 10, most frequently occurring words,
@@ -247,8 +265,11 @@ ggplot(
 # ratio of words about which one can make a statement regarding sentiment
 length(SentimentResolutionWord$word) / length(WordAppearance$word)
 # 19,15% (very low)
-A <- WordAppearance$word[!(SentimentResolutionWord$word %in% WordAppearance$word)]
-levels(A)
+# 38,82% (still low)
+
+# the words that are not classify
+levels(WordAppearance$word[!(SentimentResolutionWord$word %in% WordAppearance$word)])
+
 
 
 ### DOCUMENT TERM MATRIX
