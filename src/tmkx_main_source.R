@@ -5,13 +5,13 @@
 #
 # Change History
 # Date			  Developer				Action
-# 27.01.2022  Thierry Monthe  Initial Creation
+# 22.08.2022  RT/TM         Initial Creation
 
 #' Main function of the project TMKx. Following activities will be performed:
 #'
 #'  1- Data Loading & Data Exploration
 #' 
-#'  2- Text Preprocessing: 
+#'  2- Text Pre-processing: 
 #'        a- Corpus, 
 #'        b- Document Term Matrix
 #'        c- Stop words removal
@@ -35,13 +35,13 @@
 #'      
 #'  
 #'  5- deployment in production environment 
-#'      a-Tests
+#'      a- Tests
 #'      b- Dockerization
 #'      c- Model Maintenance
 #'      e- AWS-container & Instance
 #'      
-#' The project structure is designed to store temporary results into a 
-#' dedicated directory and 
+#' The project structure is designed to store temporary results into 
+#' dedicated directories.
 #'
 #' @param path_exchange \code{String} path of the exchange directory where all
 #' temporary results will be stored and in the R-environment
@@ -60,3 +60,49 @@
 #' @return Execution Status
 #' @family tmkx_segmentierung
 #' @export
+ 
+
+# 1. preparing environment ----
+
+# 1.1 clearing current R-environment
+rm(list = ls(all.names = TRUE))
+
+# 1.2 constructing useful paths (data, codes, ..)
+root <- getwd()
+path.data <- file.path(root, "data", "raw")
+
+# 1.3 loading required packages
+library(magrittr)
+library(dplyr)
+library(quanteda)
+library(quanteda.textstats)
+library(future)
+library(future.apply)
+library(tm)
+library(NLP)
+library(stringr)
+library(tidytext)
+library(topicmodels)
+library(ggplot2)
+library(dplyr)
+library(textstem)
+library(tictoc)
+library(SnowballC)
+library(wordcloud)
+library(textstem)
+library(caret)
+
+
+
+# 2. loading resolution data  ----
+
+# 2.1 creating path to the required data 
+path.res <- file.path(path.data, "resolution_data_fulltext.rds")
+
+message("--- loading all available resolution full text data : ---")
+res_data <- readRDS(file = path.res)
+
+# fist high level exploration
+str(res_data)
+
+# 3. exploring resolution data  ----
