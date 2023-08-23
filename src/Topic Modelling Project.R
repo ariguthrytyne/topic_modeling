@@ -24,9 +24,9 @@
 #'        c- Stop-Words removal 
 #'        d- Document Term Matrix
 #'        e- Sentiment Analysis
-#'        e- Corpus
-#'        f- Normalization
-#'        g- feature hashing
+#'        f- Corpus
+#'        g- Normalization
+#'        h- feature hashing
 #'       
 #'  5- Modeling 
 #'        a- Latent Dirichlet Allocation (Unsupervised Learning)
@@ -70,17 +70,17 @@ library(tm)
 library(quanteda)
 library(textstem)
 library(wordcloud)
-
+library(sos) # findFN
+library(stringi)
 
 
 # 2. DATA LOADING  ----
 
 # 2.1 PATHS TO DATA 
 # creating path to the required data
-resolution_data_text <- file.path(path.data, "resolution_data_fulltext.rds")
-
+resolution_data_text <- readRDS(file.path(path.data, "resolution_data_fulltext.rds"))
 message("--- loading all available resolution full text data : ---")
-res_data <- readRDS(file = path.res)
+
 # OR
 resolution_data_text <- readRDS("/Users/ryan/Library/CloudStorage/OneDrive-Personal/Ryan Aaron Tchouaké/Business/Kaeyros Analytics/Topic Modeling Project/resolution_data_fulltext.rds")
 resolution_data_text <- readRDS("C:/Users/Ryan Tchouake/OneDrive/Ryan Aaron Tchouak?/Business/Kaeyros Analytics/Topic Modeling Project/resolution_data_fulltext.rds")
@@ -94,8 +94,15 @@ colnames(ResolutionText) <- c("YEAR", "ResolutionFullTEXT")
 ResolutionTitle <- data.frame(resolution_data_text$YEAR, resolution_data_text$TitleofResolution)
 colnames(ResolutionTitle) <- c("YEAR", "ResolutionFullTITEL")
 
-# fist high level exploration
-str(res_data)
+# 2.3 MISSING VALUES ANALYSIS
+# (column: full_text)
+missing_full_text <- which(is.na(ResolutionText$ResolutionFullTEXT))
+missing_full_text
+# [1]   15   68 1267 1307 1315 1317 1339 2571 3572 3606 # 10 resolutions with no full text removed
+
+# removing observation with missing text
+ResolutionText <- ResolutionText[-missing_full_text, ]
+ResolutionTitle <- ResolutionTitle[-missing_full_text, ]
 
 
 
@@ -103,9 +110,10 @@ str(res_data)
 
 # 3.1 OVERVIEW
 # to check general info about the data set
-dim(resolution_data_text)
-colnames(resolution_data_text)
-summary(resolution_data_text)
+dim(ResolutionText)
+colnames(ResolutionText)
+summary(ResolutionText)
+str(ResolutionText)
 
 # check if there is any missing Data
 length(which(!complete.cases(resolution_data_text)))
@@ -125,8 +133,16 @@ ResolutionText %>%
   summarize(Number_Rows = n())
 # there are much more starting from 2000
 
+# 3.2 CHECKING VARIABLES
+# number of country participation in every resolution
 
-# 3.2 TOKENIZATION
+for (i in 1:10){
+  CountryL <- length(strsplit(resolution_data_text$AuthoringCountries[i], ",")[[1]])
+  print(CountryL)
+}
+length(strsplit(resolution_data_text$AuthoringCountries[1:10], ",")[[1:10]])
+
+# 3.3 TOKENIZATION
 
 # focus on the words that are used
 TidyResolutionText <- ResolutionText %>%
@@ -172,12 +188,17 @@ CleanResoulution_I <- TidyResolutionText %>%
   
 
 # Still too many words with little meaning, so so revision of the stop words
-add_words2 <- c("unite", "union", "global", "country", "support", "include", "resolution", "december","september", "right", 
-                "organ", "international", "assembly", "note", "zone", "nation", "government", "governmental", "referece", "main", "october",
-                "november", "session", "continue", "report", "implement", "confer", "programm", "gener", "secretary",
-                "?z?mc?", "yuzhmorgeologiya", "conference", "recall", "programme", "relevant", "call", "res", "conf", "corr",
-                "procedure", "iv", "general's", "preference", "convention", "organization", "e's", "e.gv", "eel",
-                "implementation", "committee", "declaration", "fifty")
+add_words2 <- c("unite", "union", "global", "country", "support", "include", "resolution", 
+                "right", "organ", "international", "assembly", "note", "zone", "nation", 
+                "government", "governmental", "referece", "main", "october", "session",
+                "continue", "report", "implement", "confer", "programm", "general", 
+                "secretary", "?z?mc?", "yuzhmorgeologiya", "conference", "recall", 
+                "programme", "relevant", "call", "res", "conf", "corr","procedure", "iv",
+                "general's", "preference", "convention", "organization", "e's", "e.gv", 
+                "eel", "implementation", "committee", "declaration", "fifty","session", 
+                "agenda", "item", "resolution", "january","february", "march", "april", 
+                "may", "june", "july", "august", "september", "october", "november", 
+                "december")
 
 custom_stopwords2 <- add_row(custom_stopwords1, word = add_words2, lexicon = "custom")
 
@@ -234,6 +255,11 @@ length(SentimentResolutionWord$word) / length(WordAppearance$word)
 # the words that are not classify
 levels(WordAppearance$word[!(SentimentResolutionWord$word %in% WordAppearance$word)])
 
+# 4.6 CORPUS
+# contains text and metadata
+# Corpora: collections of documents containing natural language text
+CorpusResolution <- tm::Corpus(tm::VectorSource(CleanResoulution_III))
+CorpusResolution
 
 
 ### ADDITIONAL INFOS 
