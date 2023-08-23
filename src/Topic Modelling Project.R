@@ -1,23 +1,107 @@
 'TOPIC MODELING'
+# The following file contains the script used for the development of a Topic Model 
+# for Text Classification of Resolutions
 
 # Resolution: formal decision or statement of the opinion (will) by 
 # United Nation General Assembly 
 # preamble + operative part (mostly one sentence)
 
+# Change History
+# Date			  Developer				      Action
+# 14.08.2023  Ryan Aaron Tchouake   Initial Creation
+
+#' Main function and activities that will be performed:
+#'
+#'  1- Preparing Environment
+#'  
+#'  2- Data Loading
+#'  
+#'  3- Data Exploration
+#' 
+#'  4- Text Pre-Processing: 
+#'        a- Lemmatization
+#'        b- Stemming
+#'        c- Stop-Words removal 
+#'        d- Document Term Matrix
+#'        e- Sentiment Analysis
+#'        e- Corpus
+#'        f- Normalization
+#'        g- feature hashing
+#'       
+#'  5- Modeling 
+#'        a- Latent Dirichlet Allocation (Unsupervised Learning)
+#'        b- n-grams
+#'        c- Regression (Supervised Learning)
+#'        
+#'  
+#'  6- Visualization
+#'      a- LDAVis
+#'      b- Word Cloud
+#'      c- Tag Cloud
+#'      d- Slope Chart
+#'      e- Sankey Chart
+#'      
+#'  
+#'  7- deployment in production environment 
+#'      a- Tests
+#'      b- Dockerization
+#'      c- Model Maintenance
+#'      e- AWS-container & Instance
+
+
+
+# 1. PREPARING ENVIRONMENT ----
+
+# 1.1 CLEARING R-ENVIRONMENT
+rm(list = ls(all.names = TRUE))
+
+# 1.2 PATH CONSTRUCTION 
+# constructing useful paths (data, codes, ..)
+root <- getwd()
+path.data <- file.path(root, "data", "raw")
+
+# 1.3 LOADING PACKEGES
 library(tidyverse)
 library(tidytext)
 library(magrittr)
 library(dplyr)
 library(SnowballC)
 library(tm)
+library(quanteda)
+library(textstem)
+library(wordcloud)
 
+
+
+# 2. DATA LOADING  ----
+
+# 2.1 PATHS TO DATA 
+# creating path to the required data
+resolution_data_text <- file.path(path.data, "resolution_data_fulltext.rds")
+
+message("--- loading all available resolution full text data : ---")
+res_data <- readRDS(file = path.res)
+# OR
 resolution_data_text <- readRDS("/Users/ryan/Library/CloudStorage/OneDrive-Personal/Ryan Aaron Tchouaké/Business/Kaeyros Analytics/Topic Modeling Project/resolution_data_fulltext.rds")
-resolution_data_text <- readRDS("C:/Users/Ryan Tchouake/OneDrive/Ryan Aaron Tchouak�/Business/Kaeyros Analytics/Topic Modeling Project/resolution_data_fulltext.rds")
+resolution_data_text <- readRDS("C:/Users/Ryan Tchouake/OneDrive/Ryan Aaron Tchouak?/Business/Kaeyros Analytics/Topic Modeling Project/resolution_data_fulltext.rds")
 resolution_data_text <- readRDS("C:/Users/Ryan/OneDrive/Ryan Aaron Tchouaké/Business/Kaeyros Analytics/Topic Modeling Project/resolution_data_fulltext.rds")
 
+# 2.2 NEW DATA FRAMES
+# creating new data frame to focus on the resolution texts & titles
+ResolutionText <- data.frame(resolution_data_text$YEAR, resolution_data_text$ResolutionFullText)
+colnames(ResolutionText) <- c("YEAR", "ResolutionFullTEXT")
 
-### OVERVIEW
+ResolutionTitle <- data.frame(resolution_data_text$YEAR, resolution_data_text$TitleofResolution)
+colnames(ResolutionTitle) <- c("YEAR", "ResolutionFullTITEL")
 
+# fist high level exploration
+str(res_data)
+
+
+
+# 3. DATA ELABORATION ----
+
+# 3.1 OVERVIEW
 # to check general info about the data set
 dim(resolution_data_text)
 colnames(resolution_data_text)
@@ -27,13 +111,6 @@ summary(resolution_data_text)
 length(which(!complete.cases(resolution_data_text)))
 # which?
 which(is.na(resolution_data_text), arr.ind = T)
-
-# create a new data frame to focus on the resolution texts and titles
-ResolutionText <- data.frame(resolution_data_text$YEAR, resolution_data_text$ResolutionFullText)
-colnames(ResolutionText) <- c("YEAR", "ResolutionFullTEXT")
-
-ResolutionTitle <- data.frame(resolution_data_text$YEAR, resolution_data_text$TitleofResolution)
-colnames(ResolutionTitle) <- c("YEAR", "ResolutionFullTITEL")
 
 # number of words in every of the 4007 resolution
 nchar(ResolutionText$ResolutionFullTEXT)
@@ -49,8 +126,7 @@ ResolutionText %>%
 # there are much more starting from 2000
 
 
-
-### TOKENIZING
+# 3.2 TOKENIZATION
 
 # focus on the words that are used
 TidyResolutionText <- ResolutionText %>%
@@ -65,77 +141,102 @@ TidyResolutionTitle <- ResolutionTitle %>%
 
 
 
-### CLEANING
+# 4. TEXT PRE-PROCESSING ----
 
-install.packages("quanteda")
-library(quanteda)
-
-# to do Lemmatization
-install.packages("textstem")
-library(textstem)
+# 4.1 LEMMATIZING
 # e.g.
 lemmatize_words(c("run", "ran", "running"))
-
 lemmatize_words(c("african", "africa", "afric"))
 lemmatize_strings(c("african", "africa", "afric"))
 
+tokens_replace(TidyResolutionText, pattern = c("african", "africa", "afric"), replacement = "africa")
+
+# 4.2 STEMMING
+# e.g.
 wordStem(c("african", "africa", "afric"))
 stem_words(c("african", "africa", "afric"))
 
-tokens_replace(TidyResolutionText, pattern = c("african", "africa", "afric"), replacement = "africa")
-
-
-custom_stopwords1 <- add_row(stop_words, word = as.character(grep("\\d+", TidyResolutionText$word, value = T)), lexicon = "custom")
+# 4.3 STOP-WORDS
+add_words1 <- as.character(grep("\\d+", TidyResolutionText$word, value = T))
+custom_stopwords1 <- add_row(stop_words, word = add_words1 , lexicon = "custom")
 # because it is full of digits without any meaning
+
 TidyResolutionText$word[TidyResolutionText$word == "africa"] <- "african"
 TidyResolutionText$word[TidyResolutionText$word == "afric"] <- "african"
+# because it didn't worked out with lemmatizing or stemming
 
+# Saving Changes
 CleanResoulution_I <- TidyResolutionText %>%
   anti_join(custom_stopwords1) %>%
   mutate(word = lemmatize_words(word))
   
 
 # Still too many words with little meaning, so so revision of the stop words
-add_words1 <- c("unite", "union", "global", "country", "support", "include", "resolution", "december","september", "right", 
+add_words2 <- c("unite", "union", "global", "country", "support", "include", "resolution", "december","september", "right", 
                 "organ", "international", "assembly", "note", "zone", "nation", "government", "governmental", "referece", "main", "october",
                 "november", "session", "continue", "report", "implement", "confer", "programm", "gener", "secretary",
                 "?z?mc?", "yuzhmorgeologiya", "conference", "recall", "programme", "relevant", "call", "res", "conf", "corr",
                 "procedure", "iv", "general's", "preference", "convention", "organization", "e's", "e.gv", "eel",
                 "implementation", "committee", "declaration", "fifty")
 
-c("unit", "union", "global", "countri", "support", "includ", "resolut", "decemb","septemb", "right", 
-  "organ", "intern", "assembli", "note", "zone", "nation", "govern", "refer", "main", "octob",
-  "novemb", "session","continu", "report", "implement", "confer", "programm", "gener", "secretari",
-  "?z?mc?", "yuzhmorgeologiya")
-custom_stopwords2 <- add_row(custom_stopwords1, word = add_words1, lexicon = "custom")
+custom_stopwords2 <- add_row(custom_stopwords1, word = add_words2, lexicon = "custom")
 
+# Saving Changes
 CleanResoulution_II <- CleanResoulution_I %>%
-  #mutate(word = wordStem(word)) %>%
   anti_join(custom_stopwords2)
-
 
 # how often a term appears in total
 WordAppearance <- CleanResoulution_II %>%
   dplyr::count(word, sort = T)
-
+# additional information
 summary(WordAppearance$n)
 
-# check words that are not part of our alphabet 
-grep("[^A-Za-z??????o?s'._]", WordAppearance$word, value = T)
-# check for links with www.
-add_words2 <- grep("www\\.", WordAppearance$word, value = T)
-
+add_words3 <- grep("www\\.", WordAppearance$word, value = T)
 custom_stopwords3 <- add_row(custom_stopwords2, word = add_words2 , lexicon = "custom")
 
-# filter these
+# Saving Changes
 CleanResoulution_III <- CleanResoulution_II %>%
   filter(grepl("[A-Za-z??????o?s']", word)) %>%
   anti_join(custom_stopwords3)
+# filter words that are not part of our alphabet and links
+
+# 4.4 DOCUMENT TERM MATRIX
+Resolution_DTM <- CleanResoulution_III %>%
+  count(word, YEAR, sort = TRUE) %>%
+  cast_dtm(YEAR, word, n) %>%
+  # overview of number of documents and terms and how many entries non-zero
+  as.matrix()
+# rows: years from 1995 to 2020
+# columns: appearing words in the resolutions over these 23 years
+# entries: how often a certain word occurs in a certain year
+
+# ordered by years from 1995 - 2020
+Resolution_DTM <- as.matrix(Resolution_DTM[order(rownames(Resolution_DTM)), ])
+
+# 4.5 SENTIMENT ANALYSIS
+# check which words can get a label of sentiment
+SentimentResolutionWord <- WordAppearance %>%
+  inner_join(get_sentiments("nrc"))
+
+SentimentResolutionWord <- WordAppearance %>%
+  inner_join(get_sentiments("loughran"))
+
+SentimentResolutionWord <- WordAppearance %>%
+  inner_join(get_sentiments("afinn"))
+
+SentimentResolutionWord <- WordAppearance %>%
+  inner_join(get_sentiments("bing"))
+
+# ratio of words about which one can make a statement regarding sentiment
+length(SentimentResolutionWord$word) / length(WordAppearance$word)
+# 38,82% (low)
+
+# the words that are not classify
+levels(WordAppearance$word[!(SentimentResolutionWord$word %in% WordAppearance$word)])
 
 
 
-# ADDITIONAL INFOS
-
+### ADDITIONAL INFOS 
 prop.table(table(CleanResoulution_III$YEAR))
 # what percentage resolutions from a given year make up of the total resolutions
 
@@ -157,10 +258,12 @@ summary(WordAppearance$n)
 var(WordAppearance$n)
 # words that appears only one time (spelling mistakes)
 WordAppearance$word[WordAppearance$n == 1]
+###
 
 
 
-### FREQUENCY PLOTS / BAR PLOTS
+# 6- VISUALIZATION
+# 6.1 FREQUENCY PLOTS / BAR PLOTS
 
 WordAppearancePlot <- CleanResoulution_III %>%
   count(word, sort = T) %>%
@@ -209,12 +312,7 @@ for (i in unique(CleanResoulution_III$YEAR)[order(unique(CleanResoulution_III$YE
   print(PL)
 }
 
-
-
-### WORDCLOUD
-
-library(wordcloud)
-
+# 6.2 WORDCLOUD
 # Total words
 wordcloud(
   words = WordAppearancePlot$word,
@@ -238,17 +336,7 @@ wordcloud(
   colors = rep(c("red", "blue", "orange", "black", "green"), 10),
   title = "Top Words in the Resolution of 2020")
 
-
-
-### SENTIMENTS PLOT
-
-# check which words can get a label of sentiment
-SentimentResolutionWord <- WordAppearance %>%
-  inner_join(get_sentiments("nrc"))
-
-SentimentResolutionWord <- WordAppearance %>%
-  inner_join(get_sentiments("loughran")) # or afinn and bing
-
+# 6.3 SENTIMENTS PLOT
 SentimentWordCounts <- SentimentResolutionWord %>%
   group_by(sentiment) %>%
   slice_max(n, n = 20) 
@@ -262,46 +350,15 @@ ggplot(
 # bar chart for each mood (from nrc) with the top 10, most frequently occurring words,
 # which can be assigned to this mood. the absolute frequency is shown on the x axis.
 
-# ratio of words about which one can make a statement regarding sentiment
-length(SentimentResolutionWord$word) / length(WordAppearance$word)
-# 19,15% (very low)
-# 38,82% (still low)
 
-# the words that are not classify
-levels(WordAppearance$word[!(SentimentResolutionWord$word %in% WordAppearance$word)])
-
-
-
-### DOCUMENT TERM MATRIX
-
-Resolution_DTM <- CleanResoulution_III %>%
-  count(word, YEAR, sort = TRUE) %>%
-  cast_dtm(YEAR, word, n) %>%
-  # overview of number of documents and terms and how many entries non-zero
-  as.matrix()
-# rows: years from 1995 to 2020
-# columns: appearing words in the resolutions over these 23 years
-# entries: how often a certain word occurs in a certain year
-
-# dimension
-dim(Resolution_DTM)
-
-# ordered by years from 1995 - 2020
-Resolution_DTM <- as.matrix(Resolution_DTM[order(rownames(Resolution_DTM)), ])
-
-
-
-### LINE CHART
+# 6.4 LINE CHART
 matplot(Resolution_DTM[ ,1:7], type = "l", xlab = "Year", ylab = "Frequency", 
         col = c("blue", "red", "green", "black", "purple", "yellow", "orange"),
         lty = 1, lwd = 2, main = "Top 7 Word Frequency Over Years", xaxt = "n") +
 axis(1, at = 1:length(rownames(Resolution_DTM)), labels = rownames(Resolution_DTM))
 # shows the trend of usage of the 7 most common words over the 23 years
 
-
-
-### PIE CHART
-
+# 6.5 PIE CHART
 # pie chart for the words of year 2020
 pie(Resolution_DTM["2020", 1:30], labels = colnames(Resolution_DTM)[1:30], 
     main = "Word Distribution in Year 2020 ", col = rainbow(30))
