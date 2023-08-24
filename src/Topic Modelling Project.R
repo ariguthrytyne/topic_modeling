@@ -21,12 +21,13 @@
 #'  4- Text Pre-Processing: 
 #'        a- Lemmatization
 #'        b- Stemming
-#'        c- Stop-Words removal 
-#'        d- Document Term Matrix
-#'        e- Sentiment Analysis
-#'        f- Corpus
-#'        g- Normalization
-#'        h- feature hashing
+#'        c- Stop-Words removal
+#'        d- Words Appearance
+#'        e- Document Term Matrix
+#'        f- Sentiment Analysis
+#'        g- Corpus
+#'        h- Normalization
+#'        i- feature hashing
 #'       
 #'  5- Modeling 
 #'        a- Latent Dirichlet Allocation (Unsupervised Learning)
@@ -80,7 +81,6 @@ library(stringi)
 # creating path to the required data
 resolution_data_text <- readRDS(file.path(path.data, "resolution_data_fulltext.rds"))
 message("--- loading all available resolution full text data : ---")
-
 # OR
 resolution_data_text <- readRDS("/Users/ryan/Library/CloudStorage/OneDrive-Personal/Ryan Aaron Tchouaké/Business/Kaeyros Analytics/Topic Modeling Project/resolution_data_fulltext.rds")
 resolution_data_text <- readRDS("C:/Users/Ryan Tchouake/OneDrive/Ryan Aaron Tchouak?/Business/Kaeyros Analytics/Topic Modeling Project/resolution_data_fulltext.rds")
@@ -115,35 +115,39 @@ colnames(ResolutionText)
 summary(ResolutionText)
 str(ResolutionText)
 
-# check if there is any missing Data
-length(which(!complete.cases(resolution_data_text)))
-# which?
-which(is.na(resolution_data_text), arr.ind = T)
-
+# 3.2 N° OF WORDS IN RESOLUTIONS
 # number of words in every of the 4007 resolution
-nchar(ResolutionText$ResolutionFullTEXT)
-  
+ResolutionText$WordsNumber <- nchar(ResolutionText$ResolutionFullTEXT)
+
+# 3.3 RESOLUTIONS PER YEAR
+# shows how many resolution exist per year
+
 # divide by years because it could be interesting to check, 
 # which terms were the focus in which year
-range(ResolutionText$YEAR)
-
-# shows how many resolution exist per year
+table(ResolutionText$YEAR)
+# OR
 ResolutionText %>%
   group_by(YEAR) %>%
-  summarize(Number_Rows = n())
-# there are much more starting from 2000
+  summarize(Number_Rows = n()) %>%
+  print(n = 23)
+# there are much more resolutions starting from the year 2000
 
-# 3.2 CHECKING VARIABLES
+prop.table(table(ResolutionText$YEAR))
+# what percentage resolutions from a given year make up of the total resolutions
+
+# 3.4 CHECKING VARIABLES
+strsplit(resolution_data_text$AuthoringCountries[2], ",")[[1]]
+# to check which countries were involved in der 2nd resolutions
+
 # number of country participation in every resolution
-
+CountryLength <- c()
 for (i in 1:10){
-  CountryL <- length(strsplit(resolution_data_text$AuthoringCountries[i], ",")[[1]])
-  print(CountryL)
+  CountryLength <- c(CountryLength, length(strsplit(resolution_data_text$AuthoringCountries[i], ",")[[1]]))
 }
-length(strsplit(resolution_data_text$AuthoringCountries[1:10], ",")[[1:10]])
+CountryLength
+# took first 10 as example
 
-# 3.3 TOKENIZATION
-
+# 3.5 TOKENIZATION
 # focus on the words that are used
 TidyResolutionText <- ResolutionText %>%
   unnest_tokens(word, ResolutionFullTEXT)
@@ -198,8 +202,8 @@ add_words2 <- c("unite", "union", "global", "country", "support", "include", "re
                 "eel", "implementation", "committee", "declaration", "fifty","session", 
                 "agenda", "item", "resolution", "january","february", "march", "april", 
                 "may", "june", "july", "august", "september", "october", "november", 
-                "december")
-
+                "december", "ii", "iii", "vi", "vii", "viii", "ix", "xi", "xii", "xiii", "xiv",
+                "xv", "xvi", "xvii", "measure", "importance")
 custom_stopwords2 <- add_row(custom_stopwords1, word = add_words2, lexicon = "custom")
 
 # Saving Changes
@@ -209,8 +213,6 @@ CleanResoulution_II <- CleanResoulution_I %>%
 # how often a term appears in total
 WordAppearance <- CleanResoulution_II %>%
   dplyr::count(word, sort = T)
-# additional information
-summary(WordAppearance$n)
 
 add_words3 <- grep("www\\.", WordAppearance$word, value = T)
 custom_stopwords3 <- add_row(custom_stopwords2, word = add_words2 , lexicon = "custom")
@@ -221,7 +223,17 @@ CleanResoulution_III <- CleanResoulution_II %>%
   anti_join(custom_stopwords3)
 # filter words that are not part of our alphabet and links
 
-# 4.4 DOCUMENT TERM MATRIX
+# 4.4 WORD APPEARANCE 
+# recheck the word appearance
+WordAppearance <- CleanResoulution_III %>%
+  dplyr::count(word, sort = T)
+
+summary(WordAppearance)
+var(WordAppearance$n)
+# words that appears only one time (spelling mistakes)
+WordAppearance$word[WordAppearance$n == 1]
+
+# 4.5 DOCUMENT TERM MATRIX
 Resolution_DTM <- CleanResoulution_III %>%
   count(word, YEAR, sort = TRUE) %>%
   cast_dtm(YEAR, word, n) %>%
@@ -234,7 +246,7 @@ Resolution_DTM <- CleanResoulution_III %>%
 # ordered by years from 1995 - 2020
 Resolution_DTM <- as.matrix(Resolution_DTM[order(rownames(Resolution_DTM)), ])
 
-# 4.5 SENTIMENT ANALYSIS
+# 4.6 SENTIMENT ANALYSIS
 # check which words can get a label of sentiment
 SentimentResolutionWord <- WordAppearance %>%
   inner_join(get_sentiments("nrc"))
@@ -250,22 +262,21 @@ SentimentResolutionWord <- WordAppearance %>%
 
 # ratio of words about which one can make a statement regarding sentiment
 length(SentimentResolutionWord$word) / length(WordAppearance$word)
-# 38,82% (low)
+# 38,82%
+# 8,17%
+# 4,44%
+# 10,12$
 
 # the words that are not classify
-levels(WordAppearance$word[!(SentimentResolutionWord$word %in% WordAppearance$word)])
+setdiff(WordAppearance$word, SentimentResolutionWord$word)
 
-# 4.6 CORPUS
+# 4.7 CORPUS
 # contains text and metadata
 # Corpora: collections of documents containing natural language text
 CorpusResolution <- tm::Corpus(tm::VectorSource(CleanResoulution_III))
 CorpusResolution
 
-
-### ADDITIONAL INFOS 
-prop.table(table(CleanResoulution_III$YEAR))
-# what percentage resolutions from a given year make up of the total resolutions
-
+### ADDITIONAL INFOS
 # to check if there are word that appear every year
 Word_Year <- CleanResoulution_III %>%
   group_by(word) %>%
@@ -274,16 +285,6 @@ SelectedWords <- Word_Year %>%
   filter(YEAR_Count >= 15)
 # there are lots of words that appears in more than 15 Years
 
-# recheck the word appearance
-WordAppearance <- CleanResoulution_III %>%
-  dplyr::count(word, sort = T) %>%
-  mutate(word = fct_reorder(word,n))
-# to get as plot the frequency sorted by size
-
-summary(WordAppearance$n)
-var(WordAppearance$n)
-# words that appears only one time (spelling mistakes)
-WordAppearance$word[WordAppearance$n == 1]
 ###
 
 

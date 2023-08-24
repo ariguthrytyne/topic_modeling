@@ -142,9 +142,9 @@ View(freq_nbr_pages)
 # exploration res_y_n 8recurrent resolutions)
 table(res_data$recurrent_res_y_n, useNA = "always")
 
-# recurrent resoltions can be used to validate the topics generated 
+# recurrent resolutions can be used to validate the topics generated 
 # by our LDA-model. Assumption: connected resolutions should have 
-# similar topics. It means it is also necessary to idetify connected 
+# similar topics. It means it is also necessary to identify connected 
 # resolutions something like Res_12 --> (Res18, res96, Res458)
 # 23.08.2023 (RT/TM)
 
@@ -154,7 +154,7 @@ table(res_data$YEAR)
 
 
 # 1995 1998 2000 2001 2002 2003 2004 2005 2006 2007 2008 2009 2010 2011 2012 2013 2014 2015 2016 2017 2018 
-# 2   15  198  226  224  188  206  160  189  179  193  184  199  193  195  192  195  203  201  210  223 
+# 2    15   198  226  224  188  206  160  189  179  193  184  199  193  195  192  195  203  201  210  223 
 # 2019 2020 
 # 218   14 
 
