@@ -164,6 +164,34 @@ table(res_data$YEAR)
 # number of data for the years 1995, 1998 and 2020 not "sufficient"
 # only few records compared to the other years --> to be removed
 
+# count number of words in each resolution text
+temp_rest <- res_data$ResolutionFullText[1]
+nbr_words_res <- count_fun(temp_rest) # wrong
+
 
 # 4. pre-processing res data  ----
+
+# 4.1 converting VoteDate to date format
+res_data$VoteDate <- lubridate::as_date(res_data$VoteDate)
+
+# 4.2 identifying observations having missing resolution text
+missing_res_text <- which(is.na(res_data$ResolutionFullText) == TRUE)
+length(missing_res_text) # 10
+
+# 4.3 exploring resolutions having missing text
+res_missing_text <- res_data %>%
+  dplyr::filter(is.na(ResolutionFullText) == TRUE)
+View(res_missing_text)
+
+# 4.4 removing resolutions with no text
+res_data <- res_data %>%
+  dplyr::filter(is.na(ResolutionFullText) == FALSE)
+
+
+# 4.5 identifying non relevant terms/sentences/phrases
+temp_res_text <- res_data$ResolutionFullText[]
+
+
+
+
 
