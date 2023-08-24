@@ -104,7 +104,7 @@ missing_full_text
 ResolutionText <- ResolutionText[-missing_full_text, ]
 ResolutionTitle <- ResolutionTitle[-missing_full_text, ]
 
-
+Resolution_
 
 # 3. DATA ELABORATION ----
 
@@ -116,7 +116,7 @@ summary(ResolutionText)
 str(ResolutionText)
 
 # 3.2 N° OF WORDS IN RESOLUTIONS
-# number of words in every of the 4007 resolution
+# number of words in every of the 4007 resolution !!!!!!!
 ResolutionText$WordsNumber <- nchar(ResolutionText$ResolutionFullTEXT)
 
 # 3.3 RESOLUTIONS PER YEAR
@@ -158,6 +158,21 @@ TidyResolutionText_II <- ResolutionText %>%
 TidyResolutionTitle <- ResolutionTitle %>%
   unnest_tokens(word, ResolutionFullTITEL)
 # getting a data frame tokenized by total words used in the resolutions
+
+
+#### TASK
+WordAppearance <- TidyResolutionText %>%
+  dplyr::count(word, sort = T)
+
+library(stringr)
+# the regex() function in the stringr package is normally used to define regular expressions
+# ignore.case = TRUE to ignores case sensitivity during pattern recognition
+grep(regex("\\d+"), WordAppearance$word, value = T)
+grep(regex("www\\.", ignore_case = T), WordAppearance$word, value = T)
+grep(regex("\\W"), WordAppearance$word, value = T)
+grep(regex("\\b(IX|IV|V?I{0,3})\\b\\.", ignore_case = T), WordAppearance$word, value = T)
+grep(regex("^.$", ignore_case = T), WordAppearance$word, value = T)
+grep(regex("\\(.*)"), ignore.case = T, WordAppearance$word, value = T)
 
 
 
@@ -203,7 +218,7 @@ add_words2 <- c("unite", "union", "global", "country", "support", "include", "re
                 "agenda", "item", "resolution", "january","february", "march", "april", 
                 "may", "june", "july", "august", "september", "october", "november", 
                 "december", "ii", "iii", "vi", "vii", "viii", "ix", "xi", "xii", "xiii", "xiv",
-                "xv", "xvi", "xvii", "measure", "importance")
+                "xv", "xvi", "xvii", "measure", "importance", "item")
 custom_stopwords2 <- add_row(custom_stopwords1, word = add_words2, lexicon = "custom")
 
 # Saving Changes
