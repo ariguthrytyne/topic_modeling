@@ -167,12 +167,17 @@ WordAppearance <- TidyResolutionText %>%
 library(stringr)
 # the regex() function in the stringr package is normally used to define regular expressions
 # ignore.case = TRUE to ignores case sensitivity during pattern recognition
+
+# all entries with digits
 grep(regex("\\d+"), WordAppearance$word, value = T)
-grep(regex("www\\.", ignore_case = T), WordAppearance$word, value = T)
-grep(regex("\\W"), WordAppearance$word, value = T)
-grep(regex("\\b(IX|IV|V?I{0,3})\\b\\.", ignore_case = T), WordAppearance$word, value = T)
+# all not words 
+grep(regex("\\W", ignore_case = T), WordAppearance$word, value = T)
+# all entries with these symbols 
+grep(regex("\\.,;:_'", ignore_case = T), WordAppearance$word, value = T)
+# all entries consist of only one letter
 grep(regex("^.$", ignore_case = T), WordAppearance$word, value = T)
-grep(regex("\\(.*)"), ignore.case = T, WordAppearance$word, value = T)
+
+####
 
 
 
@@ -210,7 +215,7 @@ CleanResoulution_I <- TidyResolutionText %>%
 add_words2 <- c("unite", "union", "global", "country", "support", "include", "resolution", 
                 "right", "organ", "international", "assembly", "note", "zone", "nation", 
                 "government", "governmental", "referece", "main", "october", "session",
-                "continue", "report", "implement", "confer", "programm", "general", 
+                "continue", "report", "implement", "conference", "programm", "general", 
                 "secretary", "?z?mc?", "yuzhmorgeologiya", "conference", "recall", 
                 "programme", "relevant", "call", "res", "conf", "corr","procedure", "iv",
                 "general's", "preference", "convention", "organization", "e's", "e.gv", 
