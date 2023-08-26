@@ -212,18 +212,18 @@ CleanResoulution_I <- TidyResolutionText %>%
   
 
 # Still too many words with little meaning, so so revision of the stop words
-add_words2 <- c("unite", "union", "global", "country", "support", "include", "resolution", 
-                "right", "organ", "international", "assembly", "note", "zone", "nation", 
-                "government", "governmental", "referece", "main", "october", "session",
-                "continue", "report", "implement", "conference", "programm", "general", 
-                "secretary", "?z?mc?", "yuzhmorgeologiya", "conference", "recall", 
-                "programme", "relevant", "call", "res", "conf", "corr","procedure", "iv",
-                "general's", "preference", "convention", "organization", "e's", "e.gv", 
-                "eel", "implementation", "committee", "declaration", "fifty","session", 
-                "agenda", "item", "resolution", "january","february", "march", "april", 
-                "may", "june", "july", "august", "september", "october", "november", 
-                "december", "ii", "iii", "vi", "vii", "viii", "ix", "xi", "xii", "xiii", "xiv",
-                "xv", "xvi", "xvii", "measure", "importance", "item")
+add_words2 <- c("unite","union","global","country","support","include","resolution", 
+                "right","organ","international","assembly","note","zone","nation", 
+                "government","governmental","referece","main","october","session",
+                "continue","report","implement","conference","programm","general", 
+                "secretary","?z?mc?","yuzhmorgeologiya","conference","recall","programme",
+                "relevant","call","res","conf","corr","procedure","measure","importance",
+                "item","general's","preference","convention","organization","e's","e.gv",
+                "eel","implementation","committee","declaration","fifty","session",
+                "agenda","item","resolution","january","february","march","april", 
+                "may","june","july","august","september","october","november","december",
+                "ii","iii","iv","vi","vii","viii","ix","xi","xii","xiii","xiv",
+                "xv","xvi","xvii")
 custom_stopwords2 <- add_row(custom_stopwords1, word = add_words2, lexicon = "custom")
 
 # Saving Changes
@@ -296,7 +296,8 @@ setdiff(WordAppearance$word, SentimentResolutionWord$word)
 CorpusResolution <- tm::Corpus(tm::VectorSource(CleanResoulution_III))
 CorpusResolution
 
-### ADDITIONAL INFOS
+### 
+# ADDITIONAL INFOS
 # to check if there are word that appear every year
 Word_Year <- CleanResoulution_III %>%
   group_by(word) %>%
@@ -304,7 +305,6 @@ Word_Year <- CleanResoulution_III %>%
 SelectedWords <- Word_Year %>%
   filter(YEAR_Count >= 15)
 # there are lots of words that appears in more than 15 Years
-
 ###
 
 
