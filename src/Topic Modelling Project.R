@@ -26,8 +26,6 @@
 #'        e- Document Term Matrix
 #'        f- Sentiment Analysis
 #'        g- Corpus
-#'        h- Normalization
-#'        i- feature hashing
 #'       
 #'  5- Modeling 
 #'        a- Latent Dirichlet Allocation (Unsupervised Learning)
@@ -64,6 +62,7 @@ path.data <- file.path(root, "data", "raw")
 # 1.3 LOADING PACKEGES
 library(tidyverse)
 library(tidytext)
+library(textdata)
 library(magrittr)
 library(dplyr)
 library(SnowballC)
@@ -81,28 +80,30 @@ library(stringi)
 # creating path to the required data
 resolution_data_text <- readRDS(file.path(path.data, "resolution_data_fulltext.rds"))
 message("--- loading all available resolution full text data : ---")
-# OR
-resolution_data_text <- readRDS("/Users/ryan/Library/CloudStorage/OneDrive-Personal/Ryan Aaron Tchouaké/Business/Kaeyros Analytics/Topic Modeling Project/resolution_data_fulltext.rds")
-resolution_data_text <- readRDS("C:/Users/Ryan Tchouake/OneDrive/Ryan Aaron Tchouak?/Business/Kaeyros Analytics/Topic Modeling Project/resolution_data_fulltext.rds")
-resolution_data_text <- readRDS("C:/Users/Ryan/OneDrive/Ryan Aaron Tchouaké/Business/Kaeyros Analytics/Topic Modeling Project/resolution_data_fulltext.rds")
 
-# 2.2 NEW DATA FRAMES
-# creating new data frame to focus on the resolution texts & titles
-ResolutionText <- data.frame(resolution_data_text$YEAR, resolution_data_text$AuthoringCountries, resolution_data_text$ResolutionFullText)
-colnames(ResolutionText) <- c("YEAR", "Countries", "ResolutionFullTEXT")
-
-ResolutionTitle <- data.frame(resolution_data_text$YEAR, resolution_data_text$TitleofResolution)
-colnames(ResolutionTitle) <- c("YEAR", "Countries", "ResolutionTITLE")
-
-# 2.3 MISSING VALUES ANALYSIS
+# 2.2 MISSING VALUES ANALYSIS
 # (column: full_text)
-missing_full_text <- which(is.na(ResolutionText$ResolutionFullTEXT))
+missing_full_text <- which(is.na(resolution_data_text$ResolutionFullText))
 missing_full_text
 # [1]   15   68 1267 1307 1315 1317 1339 2571 3572 3606 # 10 resolutions with no full text removed
 
 # removing observation with missing text
-ResolutionText <- ResolutionText[-missing_full_text, ]
-ResolutionTitle <- ResolutionTitle[-missing_full_text, ]
+resolution_data_text <- resolution_data_text[-missing_full_text, ]
+
+# 2.2 NEW DATA FRAMES
+# adding an id-variable to the data frame
+Vitual_ID <- paste0(rep("Document_", nrow(resolution_data_text)), 1:nrow(resolution_data_text))
+resolution_data_text$ID <- Vitual_ID
+
+# creating new data frame to focus on the resolution texts & titles
+ResolutionText <- data.frame(resolution_data_text$ID, resolution_data_text$YEAR, 
+                             resolution_data_text$AuthoringCountries,
+                             resolution_data_text$TitleofResolution, 
+                             resolution_data_text$ResolutionFullText)
+colnames(ResolutionText) <- c("Document_ID", "YEAR", "Countries", "ResolutionTitle","ResolutionFullTEXT")
+
+
+
 
 # 3. DATA ELABORATION ----
 
@@ -145,7 +146,38 @@ for (i in 1:10){
 CountryLength
 # took first 10 as example
 
-# 3.5 TOKENIZATION
+# 3.5 CORPUS
+# contains text and metadata
+# Corpora: collections of documents containing natural language text
+CorpusResolution <- tm::Corpus(tm::VectorSource(ResolutionText$ResolutionFullTEXT))
+# Inspection of one 
+inspect(CorpusResolution[[1]])
+
+# remove digits
+CorpusResolution <- tm_map(CorpusResolution, removeNumbers)
+inspect(CorpusResolution[[1]])
+# remove punctuation
+CorpusResolution <- tm_map(CorpusResolution, removePunctuation, preserve_intra_word_dashes = TRUE, ucp = TRUE)
+inspect(CorpusResolution[[1]])
+# transforming lower case
+CorpusResolution <- tm_map(CorpusResolution, content_transformer(tolower))
+inspect(CorpusResolution[[1]])
+# removing stop words
+CorpusResolution <- tm_map(CorpusResolution, removeWords, add_words2)
+inspect(CorpusResolution[[1]])
+# create custom function to remove other misc characters
+TextPreprocessing <- function(x)
+{gsub('http\\S+\\s*',"",x) # remove URLs
+  gsub('#\\S+',"",x) # remove hash tags
+  gsub('[[:cntrl:]]',"",x) # remove controls and special characters
+  gsub("\\_","",x) #
+  gsub("^.$","",x) #
+  gsub("\\W","",x)
+} # no space have to correct tomorrow
+CorpusResolution <- tm_map(CorpusResolution, TextPreprocessing)
+inspect(CorpusResolution[[1]])
+
+# 3.6 TOKENIZATION
 # focus on the words that are used
 TidyResolutionText <- ResolutionText %>%
   unnest_tokens(word, ResolutionFullTEXT)
@@ -153,9 +185,9 @@ TidyResolutionText <- ResolutionText %>%
 TidyResolutionText_II <- ResolutionText %>%
   unnest_tokens(output = "sentece", token = "sentences", input = ResolutionFullTEXT)
 
-TidyResolutionTitle <- ResolutionTitle %>%
-  unnest_tokens(word, ResolutionFullTITEL)
 # getting a data frame tokenized by total words used in the resolutions
+
+
 
 # 4. TEXT PRE-PROCESSING ----
 
@@ -165,7 +197,7 @@ lemmatize_words(c("run", "ran", "running"))
 lemmatize_words(c("african", "africa", "afric"))
 lemmatize_strings(c("african", "africa", "afric"))
 
-tokens_replace(TidyResolutionText, pattern = c("african", "africa", "afric"), replacement = "africa")
+tokens_replace(TidyResolutionText$word, pattern = c("african", "africa", "afric"), replacement = "africa")
 
 # 4.2 STEMMING
 # e.g.
@@ -173,6 +205,7 @@ wordStem(c("african", "africa", "afric"))
 stem_words(c("african", "africa", "afric"))
 
 # 4.3 STOP-WORDS
+# adding digits to stop words
 add_words1 <- as.character(grep(regex("\\d+", ignore_case = T) , TidyResolutionText$word, value = T))
 custom_stopwords1 <- add_row(stop_words, word = add_words1 , lexicon = "custom")
 # because it is full of digits without any meaning
@@ -184,15 +217,15 @@ TidyResolutionText$word[TidyResolutionText$word == "afric"] <- "african"
 # Saving Changes
 CleanResoulution_I <- TidyResolutionText %>%
   anti_join(custom_stopwords1) %>%
-  mutate(word = lemmatize_words(word))
+  mutate(word = lemmatize_strings(word))
   
 
 # Still too many words with little meaning, so so revision of the stop words
-add_words2 <- c("unite","union","global","country","support","include","resolution", 
+add_words2 <- c("unite", "union","distr","global","country","support","include","resolution", 
                 "right","organ","international","assembly","note","zone","nation", 
                 "government","governmental","referece","main","october","session",
                 "continue","report","implement","conference","programm","general", 
-                "secretary","?z?mc?","yuzhmorgeologiya","conference","recall","programme",
+                "secretary","yuzhmorgeologiya","conference","recall","programme",
                 "relevant","call","res","conf","corr","procedure","measure","importance",
                 "item","general's","preference","convention","organization","e's","e.gv",
                 "eel","implementation","committee","declaration","twenty","thirty","forty",
@@ -200,8 +233,8 @@ add_words2 <- c("unite","union","global","country","support","include","resoluti
                 "fifteen","eighteen","sixteen","nineteen","seventeen",
                 "session","agenda","item","resolution","january","february","march","april", 
                 "may","june","july","august","september","october","november","december",
-                "ii","iii","iv","vi","vii","viii","ix","xi","xii","xiii","xiv",
-                "xv","xvi","xvii",)
+                "ii","iii","iv","vi","vii","viii","ix","xi","xii","xiii","xiv","xv","xvi",
+                "xvii")
 custom_stopwords2 <- add_row(custom_stopwords1, word = add_words2, lexicon = "custom")
 
 # Saving Changes
@@ -255,6 +288,18 @@ WordAppearance$word[WordAppearance$n == 1]
 
 # 4.5 DOCUMENT TERM MATRIX
 Resolution_DTM <- CleanResoulution_III %>%
+  count(word, Document_ID, sort = T) %>%
+  cast_dtm(Document_ID, word, n) %>%
+  # overview of number of documents and terms that appears i every document
+  as.matrix()
+# rows: Document
+# columns: appearing words in the resolutions over these document
+# entries: how often a certain word occurs in a certain document
+
+# ordered by years from 1 - 3997
+Resolution_DTM <- as.matrix(Resolution_DTM[order(rownames(Resolution_DTM)), ])
+
+ResolutionYEAR_DTM <- CleanResoulution_III %>%
   count(word, YEAR, sort = TRUE) %>%
   cast_dtm(YEAR, word, n) %>%
   # overview of number of documents and terms and how many entries non-zero
@@ -264,7 +309,8 @@ Resolution_DTM <- CleanResoulution_III %>%
 # entries: how often a certain word occurs in a certain year
 
 # ordered by years from 1995 - 2020
-Resolution_DTM <- as.matrix(Resolution_DTM[order(rownames(Resolution_DTM)), ])
+ResolutionYEAR_DTM <- as.matrix(ResolutionYEAR_DTM[order(rownames(ResolutionYEAR_DTM)), ])
+
 
 # 4.6 SENTIMENT ANALYSIS
 # check which words can get a label of sentiment
@@ -290,11 +336,6 @@ length(SentimentResolutionWord$word) / length(WordAppearance$word)
 # the words that are not classify
 setdiff(WordAppearance$word, SentimentResolutionWord$word)
 
-# 4.7 CORPUS
-# contains text and metadata
-# Corpora: collections of documents containing natural language text
-CorpusResolution <- tm::Corpus(tm::VectorSource(CleanResoulution_III))
-CorpusResolution
 
 ### 
 # ADDITIONAL INFOS
