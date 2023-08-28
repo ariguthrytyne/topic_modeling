@@ -88,11 +88,11 @@ resolution_data_text <- readRDS("C:/Users/Ryan/OneDrive/Ryan Aaron Tchouaké/Bus
 
 # 2.2 NEW DATA FRAMES
 # creating new data frame to focus on the resolution texts & titles
-ResolutionText <- data.frame(resolution_data_text$YEAR, resolution_data_text$ResolutionFullText)
-colnames(ResolutionText) <- c("YEAR", "ResolutionFullTEXT")
+ResolutionText <- data.frame(resolution_data_text$YEAR, resolution_data_text$AuthoringCountries, resolution_data_text$ResolutionFullText)
+colnames(ResolutionText) <- c("YEAR", "Countries", "ResolutionFullTEXT")
 
 ResolutionTitle <- data.frame(resolution_data_text$YEAR, resolution_data_text$TitleofResolution)
-colnames(ResolutionTitle) <- c("YEAR", "ResolutionFullTITEL")
+colnames(ResolutionTitle) <- c("YEAR", "Countries", "ResolutionTITLE")
 
 # 2.3 MISSING VALUES ANALYSIS
 # (column: full_text)
@@ -104,8 +104,6 @@ missing_full_text
 ResolutionText <- ResolutionText[-missing_full_text, ]
 ResolutionTitle <- ResolutionTitle[-missing_full_text, ]
 
-Resolution_
-
 # 3. DATA ELABORATION ----
 
 # 3.1 OVERVIEW
@@ -116,14 +114,14 @@ summary(ResolutionText)
 str(ResolutionText)
 
 # 3.2 N° OF WORDS IN RESOLUTIONS
-# number of words in every of the 4007 resolution !!!!!!!
+# number of letters in every of the 3997 resolution left
 ResolutionText$WordsNumber <- nchar(ResolutionText$ResolutionFullTEXT)
 
 # 3.3 RESOLUTIONS PER YEAR
 # shows how many resolution exist per year
 
 # divide by years because it could be interesting to check, 
-# which terms were the focus in which year
+# how many resolutions exist in every year
 table(ResolutionText$YEAR)
 # OR
 ResolutionText %>%
@@ -136,8 +134,8 @@ prop.table(table(ResolutionText$YEAR))
 # what percentage resolutions from a given year make up of the total resolutions
 
 # 3.4 CHECKING VARIABLES
-strsplit(resolution_data_text$AuthoringCountries[2], ",")[[1]]
-# to check which countries were involved in der 2nd resolutions
+strsplit(ResolutionText$Countries[2], ",")[[1]]
+# to check which countries were involved in the 2nd resolutions
 
 # number of country participation in every resolution
 CountryLength <- c()
@@ -159,28 +157,6 @@ TidyResolutionTitle <- ResolutionTitle %>%
   unnest_tokens(word, ResolutionFullTITEL)
 # getting a data frame tokenized by total words used in the resolutions
 
-
-#### TASK
-WordAppearance <- TidyResolutionText %>%
-  dplyr::count(word, sort = T)
-
-library(stringr)
-# the regex() function in the stringr package is normally used to define regular expressions
-# ignore.case = TRUE to ignores case sensitivity during pattern recognition
-
-# all entries with digits
-grep(regex("\\d+"), WordAppearance$word, value = T)
-# all not words 
-grep(regex("\\W", ignore_case = T), WordAppearance$word, value = T)
-# all entries with these symbols 
-grep(regex("\\.,;:_'", ignore_case = T), WordAppearance$word, value = T)
-# all entries consist of only one letter
-grep(regex("^.$", ignore_case = T), WordAppearance$word, value = T)
-
-####
-
-
-
 # 4. TEXT PRE-PROCESSING ----
 
 # 4.1 LEMMATIZING
@@ -197,7 +173,7 @@ wordStem(c("african", "africa", "afric"))
 stem_words(c("african", "africa", "afric"))
 
 # 4.3 STOP-WORDS
-add_words1 <- as.character(grep("\\d+", TidyResolutionText$word, value = T))
+add_words1 <- as.character(grep(regex("\\d+", ignore_case = T) , TidyResolutionText$word, value = T))
 custom_stopwords1 <- add_row(stop_words, word = add_words1 , lexicon = "custom")
 # because it is full of digits without any meaning
 
@@ -219,11 +195,13 @@ add_words2 <- c("unite","union","global","country","support","include","resoluti
                 "secretary","?z?mc?","yuzhmorgeologiya","conference","recall","programme",
                 "relevant","call","res","conf","corr","procedure","measure","importance",
                 "item","general's","preference","convention","organization","e's","e.gv",
-                "eel","implementation","committee","declaration","fifty","session",
-                "agenda","item","resolution","january","february","march","april", 
+                "eel","implementation","committee","declaration","twenty","thirty","forty",
+                "fifty","sixty","seventy","eighty","ninety","hundred","thirteen","fourteen",
+                "fifteen","eighteen","sixteen","nineteen","seventeen",
+                "session","agenda","item","resolution","january","february","march","april", 
                 "may","june","july","august","september","october","november","december",
                 "ii","iii","iv","vi","vii","viii","ix","xi","xii","xiii","xiv",
-                "xv","xvi","xvii")
+                "xv","xvi","xvii",)
 custom_stopwords2 <- add_row(custom_stopwords1, word = add_words2, lexicon = "custom")
 
 # Saving Changes
@@ -234,12 +212,34 @@ CleanResoulution_II <- CleanResoulution_I %>%
 WordAppearance <- CleanResoulution_II %>%
   dplyr::count(word, sort = T)
 
-add_words3 <- grep("www\\.", WordAppearance$word, value = T)
-custom_stopwords3 <- add_row(custom_stopwords2, word = add_words2 , lexicon = "custom")
+#### TASK
+WordAppearance <- TidyResolutionText %>%
+  dplyr::count(word, sort = T)
+
+library(stringr)
+# the regex() function in the stringr package is normally used to define regular expressions
+# ignore.case = TRUE to ignores case sensitivity during pattern recognition
+
+# all entries with digits
+grep(regex("\\d+"), WordAppearance$word, value = T)
+# all not words 
+grep(regex("\\W", ignore_case = T), WordAppearance$word, value = T)
+# all entries with these symbols 
+grep(regex("\\.", ignore_case = T), WordAppearance$word, value = T)
+grep(regex("\\:", ignore_case = T), WordAppearance$word, value = T)
+grep(regex("\\'", ignore_case = T), WordAppearance$word, value = T)
+grep(regex("\\_", ignore_case = T), WordAppearance$word, value = T)
+grep(regex("\\-", ignore_case = T), WordAppearance$word, value = T)
+# all entries consist of only one letter
+grep(regex("^.$", ignore_case = T), WordAppearance$word, value = T)
+####
+
+add_words3 <- grep(regex("\\_|^.$", ignore_case = T), WordAppearance$word, value = T)
+custom_stopwords3 <- add_row(custom_stopwords2, word = add_words3 , lexicon = "custom")
 
 # Saving Changes
 CleanResoulution_III <- CleanResoulution_II %>%
-  filter(grepl("[A-Za-z??????o?s']", word)) %>%
+  filter(grepl(regex("^\\w+$", ignore_case = T), word)) %>%
   anti_join(custom_stopwords3)
 # filter words that are not part of our alphabet and links
 
