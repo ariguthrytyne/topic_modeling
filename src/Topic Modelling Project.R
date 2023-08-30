@@ -42,7 +42,7 @@
 #'      4.6- Regular Expressions
 #'      4.7- Back to Clean Data Frame
 #'       
-#'  5- Document Term Matrix & Dimensional Fact Model
+#'  5- Document Term Matrix & Document Feature Matrix
 #'      5.1- DTM
 #'      5.2- DFM
 #'      
@@ -206,7 +206,7 @@ CustomStopwords <- c("unite", "union","distr","global","country","support","incl
                      "nation","ares", "government","governmental","reference","refer","main",
                      "october","session","agendum","alrev","adopt","aadd","ee","aa","add","aad",
                      "continue","report","implement","conference","programm","general","isl",
-                     "oo","nn","ff","gg","aladd"
+                     "oo","nn","ff","gg","aladd",
                      "secretary","yuzhmorgeologiya","conference","recall","programme","al",
                      "relevant","call","res","conf","corr","procedure","measure","importance",
                      "item","general's","preference","convention","organization","e's","e.gv",
@@ -264,7 +264,7 @@ ResolutionText$ResolutionFullTEXT <- TextDataFrame$ResolutionFullTEXT
 
 
 
-# 5. DOCUMENT TERM MATRIX ----
+# 5. DOCUMENT TERM MATRIX & DOCUMENT FEATURE MATRIX ----
 
 # 5.1 DTM
 Resolution_DTM <- CleanResoulution_III %>%
@@ -369,6 +369,7 @@ ggplot(
 ) +
   geom_col() +
   theme(axis.text.x = element_text(angle = 90)) +
+  scale_colour_gradientn(colors = terrain.colors(10))+
   ggtitle("Total Resolution Words Frequency") +
   labs(x = "Words in the Resolutions", y = "Frequency")
 
@@ -398,6 +399,7 @@ for (i in unique(CleanResoulution_III$YEAR)[order(unique(CleanResoulution_III$YE
   GraphTitle <- paste0("Top Words in Resolution of ", i)
   PL <- ggplot(
     TopWordsYears, aes(x = word, y = n, fill = YEAR))+ 
+    scale_colour_gradientn(colors = terrain.colors(10))+
     geom_col(show.legend = F) +
     coord_flip() +
     labs(title = GraphTitle, x = "Top 10 Words", y = "Frequency")
