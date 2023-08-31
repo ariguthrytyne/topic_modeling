@@ -10,7 +10,7 @@
 # 14.08.2023          Ryan Aaron Tchouake   Initial Creation
 
 # Last Update
-# 29.08.2023
+# 31.08.2023
 
 
 
@@ -41,26 +41,28 @@
 #'      4.5- Stop Words
 #'      4.6- Regular Expressions
 #'      4.7- Back to Clean Data Frame
-#'       
-#'  5- Document Term Matrix & Document Feature Matrix
-#'      5.1- DTM
-#'      5.2- DFM
 #'      
-#'  6- Tokenization
-#'  
+#'  5- Tokenization 
+#'      
+#'  6- Modelbuilding Analysis 
+#'      6.1- DTM
+#'      6.2- DFM
+#'      6.3-
+#'      6.4- Sentiment Analysis
+#'      
 #'  7- Modeling 
 #'        7.1- Latent Dirichlet Allocation (Unsupervised Learning)
 #'        7.2- n-grams
 #'        7.3- Regression (Supervised Learning)
 #'        
 #'  8- Visualization
-#'      8.1- LDAVis
-#'      8.2- Word Cloud
-#'      8.3- Tag Cloud
+#'      8.1- LDA Visualization
+#'      8.2- Wordcloud
+#'      8.3- Tagcloud
 #'      8.4- Slope Chart
 #'      8.5- Sankey Chart
 #'      
-#'  9- Deployment in production environment 
+#'  9- Deployment in Production Environment 
 #'      9.1- Tests
 #'      9.2- Dockerization
 #'      9.3- Model Maintenance
@@ -86,6 +88,7 @@ library(textstem)
 library(wordcloud)
 library(sos) # findFN
 library(stringi)
+library(topicmodels)
 
 # 1.3 PATH CONSTRUCTION 
 # constructing useful paths (data, codes, ..)
@@ -144,7 +147,7 @@ CorpusResolution[[1]]$meta
 CorpusResolution[[1]]$meta$id
 CorpusResolution[[1]]$meta$language
 
-# 3.2 N° OF LETTERS IN RESOLUTIONS
+# 3.2 N? OF LETTERS IN RESOLUTIONS
 # number of letters in every of the 3997 resolution left
 ResolutionText$WordsNumber <- nchar(ResolutionText$ResolutionFullTEXT)
 
@@ -204,9 +207,9 @@ CorpusResolution <- tm_map(CorpusResolution, content_transformer(lemmatize_strin
 CustomStopwords <- c("unite", "union","distr","global","country","support","include",
                      "resolution", "right","organ","international","assembly","note","zone",
                      "nation","ares", "government","governmental","reference","refer","main",
-                     "october","session","agendum","alrev","adopt","aadd","ee","aa","add","aad",
+                     "october","session","agendum","alrev","adopt","aadd","ee","aa","add",
                      "continue","report","implement","conference","programm","general","isl",
-                     "oo","nn","ff","gg","aladd",
+                     "oo","nn","ff","gg","aladd","aad",
                      "secretary","yuzhmorgeologiya","conference","recall","programme","al",
                      "relevant","call","res","conf","corr","procedure","measure","importance",
                      "item","general's","preference","convention","organization","e's","e.gv",
@@ -233,13 +236,11 @@ CorpusResolution <- tm_map(CorpusResolution, removeWords, c(stop_words$word, Cus
 # 4.6 REGULAR EXPRESSIONS
 # create custom function to remove other misc characters
 TextPreprocessing <- function(x){
+  gsub("[^a-z ]","",x) # remove non alphabetic
   gsub("\\<african\\>|\\<afric\\>", "africa",x)
-  
-  gsub("\\d+","",x) # remove again messing digits
-  gsub("http\\S+\\s*","",x) # remove URLs
-  gsub("#\\S+","",x) # remove hash tags
+  gsub("www\\S+\\s*","",x) # remove URLs
   gsub("[[:cntrl:]]","",x) # remove controls and special characters
-  gsub("\\_|-","",x) # 
+  gsub("\\_|-","",x) # remove special characters
   gsub("^.$","",x) # remove words with only one letter
   
   gsub("^[[:space:]]*","",x) # remove leading white spaces
@@ -251,23 +252,29 @@ CorpusResolution <- tm_map(CorpusResolution, TextPreprocessing)
 inspect(CorpusResolution[[50]])
 
 # 4.7 BACK TO CLEAN DATA FRAME
-TextDataFrame <- data_frame(ResolutionFullTEXT = CorpusResolution %>% 
- `class<-`("list") %>% 
-   use_series(content) ) %>%
-    rowwise %>%
-     mutate(content = ResolutionFullTEXT %>%
-       names %>%
-         extract(1) )
+TextDataFrame <- tibble(ResolutionFullTEXT = sapply(CorpusResolution, as.character))
 
 ResolutionText$ResolutionFullTEXT <- NULL
 ResolutionText$ResolutionFullTEXT <- TextDataFrame$ResolutionFullTEXT
 
 
 
-# 5. DOCUMENT TERM MATRIX & DOCUMENT FEATURE MATRIX ----
+# 5. TOKENIZATION ----
+# focus on every words that are used
+TidyResolutionTextI <- ResolutionText %>%
+  unnest_tokens(word, ResolutionFullTEXT) %>%
+  filter(grepl("^\\w+$", ignore.case = T, word))
+# focus on three words combination
+TidyResolutionTextIII <- ResolutionText %>%
+unnest_tokens(output = "word",input = ResolutionFullTEXT, token = "words", to = 3)
+# getting a data frame tokenized by total words used in the resolutions
 
-# 5.1 DTM
-Resolution_DTM <- CleanResoulution_III %>%
+
+
+# 6. MODELBUILDING ANALYSIS ----
+
+# 6.1 DTM
+Resolution_DTM <- TidyResolutionTextI  %>%
   count(word, Document_ID, sort = T) %>%
   cast_dtm(Document_ID, word, n) %>%
   # overview of number of documents and terms that appears i every document
@@ -275,11 +282,10 @@ Resolution_DTM <- CleanResoulution_III %>%
 # rows: Document
 # columns: appearing words in the resolutions over these document
 # entries: how often a certain word occurs in a certain document
-
-# ordered by years from 1 - 3997
 Resolution_DTM <- as.matrix(Resolution_DTM[order(rownames(Resolution_DTM)), ])
+# ordered by years from 1 - 3997
 
-ResolutionYEAR_DTM <- CleanResoulution_III %>%
+ResolutionYEAR_DTM <- TidyResolutionTextI %>%
   count(word, YEAR, sort = TRUE) %>%
   cast_dtm(YEAR, word, n) %>%
   # overview of number of documents and terms and how many entries non-zero
@@ -287,23 +293,15 @@ ResolutionYEAR_DTM <- CleanResoulution_III %>%
 # rows: years from 1995 to 2020
 # columns: appearing words in the resolutions over these 23 years
 # entries: how often a certain word occurs in a certain year
-
-# ordered by years from 1995 - 2020
 ResolutionYEAR_DTM <- as.matrix(ResolutionYEAR_DTM[order(rownames(ResolutionYEAR_DTM)), ])
+# ordered by years from 1995 - 2020
 
-# 5.2 DFM
+# 6.2 DFM
 
 
-
-# 6. TOKENIZATION ----
-# focus on the words that are used
-TidyResolutionText <- ResolutionText %>%
-  unnest_tokens(word, ResolutionFullTEXT)
-# getting a data frame tokenized by total words used in the resolutions
-
-# 4.4 WORD APPEARANCE 
+# 6.3 WORD APPEARANCE 
 # recheck the word appearance
-WordAppearance <- TidyResolutionText %>%
+WordAppearance <- TidyResolutionTextI %>%
   dplyr::count(word, sort = T)
 
 summary(WordAppearance)
@@ -312,7 +310,7 @@ var(WordAppearance$n)
 WordAppearance$word[WordAppearance$n == 1]
 
 
-# 6.3 SENTIMENT ANALYSIS
+# 6.4 SENTIMENT ANALYSIS
 # check which words can get a label of sentiment
 SentimentResolutionWord <- WordAppearance %>%
   inner_join(get_sentiments("nrc"))
@@ -333,6 +331,19 @@ length(SentimentResolutionWord$word) / length(WordAppearance$word)
 # 4,44%
 # 10,12$
 
+SentimentWordCounts <- SentimentResolutionWord %>%
+  group_by(sentiment) %>%
+  slice_max(n, n = 20) 
+
+ggplot(
+  SentimentWordCounts, aes(x = word, y = n, fill = sentiment)) + 
+  geom_col(show.legend = F) +
+  facet_wrap(~sentiment, scales = "free_y") +
+  coord_flip() +
+  labs(title = "Sentiment Word Count", x = "Words")
+# bar chart for each mood (from nrc) with the top 10, most frequently occurring words,
+# which can be assigned to this mood. the absolute frequency is shown on the x axis.
+
 # the words that are not classify
 setdiff(WordAppearance$word, SentimentResolutionWord$word)
 
@@ -340,7 +351,7 @@ setdiff(WordAppearance$word, SentimentResolutionWord$word)
 ### 
 # ADDITIONAL INFOS
 # to check if there are word that appear every year
-Word_Year <- CleanResoulution_III %>%
+Word_Year <- TidyResolutionTextI %>%
   group_by(word) %>%
   summarize(YEAR_Count = n_distinct(YEAR))
 SelectedWords <- Word_Year %>%
@@ -350,15 +361,64 @@ SelectedWords <- Word_Year %>%
 
 
 
+# 7. MODELING ----
 
+# 7.1- Latent Dirichlet Allocation (Unsupervised Learning)
+dim(Resolution_DTM)
+SampleSize <- floor(0.8 * ncol(Resolution_DTM))
+Train_IND <- sample(ncol(Resolution_DTM), size = SampleSize)
+# getting randomly 80% of the words
+TrainDATA <- Resolution_DTM[ ,Train_IND]
+TestDATA <- Resolution_DTM[ ,-Train_IND]
 
+LDA_Model <- LDA(TrainDATA, k = 5, method = "Gibbs", control = list(seed = 42))
+  
+LDA_Model_BETA <- tidy(LDA_Model, matrix = "beta") # how related is the term to the topic
+LDA_Model_GAMMA <- tidy(LDA_Model, matrix = "gamma") # how much every topic make of document...
 
+# checking top words appearances in topic 3
+LDA_Model_BETA %>%
+  group_by(topic) %>%
+  slice_max(beta, n = 10) %>%
+  arrange(topic, -beta) %>%
+  filter(topic == 3)
 
+LDA_Model_GAMMA %>%
+  filter(topic == 3) %>%
+  arrange(desc(gamma)) %>%
+  select(term)
 
 # 8. VISUALIZATION ----
-# 8.1 FREQUENCY PLOTS / BAR PLOTS
 
-WordAppearancePlot <- CleanResoulution_III %>%
+# 8.1 LDA VISUALISATIONS
+WordsBETA <- LDA_Model_BETA %>%
+  group_by(topic) %>%
+  slice_max(beta, n = 15) %>%
+  ungroup() %>%
+  mutate(term = fct_reorder(term, beta))
+ggplot(
+  WordsBETA,
+  aes(x = term, y = beta, fill = as.factor(topic))
+)+
+  geom_col(show.legend = F) + 
+  facet_wrap(~topic, scales = "free") +
+  coord_flip()
+
+WordsGAMMA <- LDA_Model_GAMMA %>%
+  group_by(topic) %>%
+  slice_max(gamma, n = 15) %>%
+  ungroup() %>%
+  mutate(term = fct_reorder(term, gamma))
+ggplot(
+  WordsGAMMA,
+  aes(x = term, y = gamma, fill = as.factor(topic))
+)+
+  geom_col(show.legend = F) + 
+  facet_wrap(~topic, scales = "free") +
+  coord_flip()
+
+# 8.2 FREQUENCY PLOTS / BAR PLOTS
+WordAppearancePlot <- TidyResolutionTextI %>%
   count(word, sort = T) %>%
   slice_max(n, n = 100) %>%
   mutate(word = fct_reorder(word,n))
@@ -375,7 +435,7 @@ ggplot(
 
 
 # plotting the top 5 words of every Year
-TopWordsYear <- CleanResoulution_III %>%
+TopWordsYear <- TidyResolutionTextI %>%
   count(YEAR, word) %>%
   arrange(YEAR, desc(n)) %>%
   group_by(YEAR) %>%
@@ -390,8 +450,8 @@ ggplot(
 
 
 # plotting the top 15 words of every year separately 
-for (i in unique(CleanResoulution_III$YEAR)[order(unique(CleanResoulution_III$YEAR))]){
-  TopWordsYears <- CleanResoulution_III %>%
+for (i in unique(TidyResolutionTextI$YEAR)[order(unique(TidyResolutionTextI$YEAR))]){
+  TopWordsYears <- TidyResolutionTextI %>%
     count(YEAR, word) %>%
     filter(YEAR == i) %>%
     slice_max(n, n = 15)
@@ -407,7 +467,7 @@ for (i in unique(CleanResoulution_III$YEAR)[order(unique(CleanResoulution_III$YE
   print(PL)
 }
 
-# 8.2 WORDCLOUD
+# 8.3 WORDCLOUD
 # Total words
 wordcloud(
   words = WordAppearancePlot$word,
@@ -419,7 +479,7 @@ wordcloud(
 
 # 2020
 # repeated check of the most actual terms
-WordsCounts2020 <- CleanResoulution_III %>%
+WordsCounts2020 <- TidyResolutionTextI %>%
   count(YEAR, word, sort = T) %>%
   filter(YEAR == "2020")
   
@@ -430,21 +490,6 @@ wordcloud(
   ordered.colors = T,
   colors = rep(c("red", "blue", "orange", "black", "green"), 10),
   title = "Top Words in the Resolution of 2020")
-
-# 8.3 SENTIMENTS PLOT
-SentimentWordCounts <- SentimentResolutionWord %>%
-  group_by(sentiment) %>%
-  slice_max(n, n = 20) 
-
-ggplot(
-  SentimentWordCounts, aes(x = word, y = n, fill = sentiment)) + 
-  geom_col(show.legend = F) +
-  facet_wrap(~sentiment, scales = "free_y") +
-  coord_flip() +
-  labs(title = "Sentiment Word Count", x = "Words")
-# bar chart for each mood (from nrc) with the top 10, most frequently occurring words,
-# which can be assigned to this mood. the absolute frequency is shown on the x axis.
-
 
 # 8.4 LINE CHART
 matplot(Resolution_DTM[ ,1:7], type = "l", xlab = "Year", ylab = "Frequency", 
