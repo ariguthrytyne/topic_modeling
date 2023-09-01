@@ -36,10 +36,10 @@
 #'  4- Text Pre-Processing & Cleaning 
 #'      4.1- Lower Case
 #'      4.2- Punctuation
-#'      4.3- Numbers
-#'      4.4- Lemmatizing
-#'      4.5- Stop Words
-#'      4.6- Regular Expressions
+#'      4.3- Lemmatizing
+#'      4.4- Stop Words
+#'      4.5- Regular Expressions
+#'      4.6- Numbers
 #'      4.7- Back to Clean Data Frame
 #'      
 #'  5- Tokenization 
@@ -190,10 +190,7 @@ CorpusResolution <- tm_map(CorpusResolution, content_transformer(tolower))
 # 4.2 REMOVING PUNCTUATION
 CorpusResolution <- tm_map(CorpusResolution, removePunctuation, preserve_intra_word_dashes = FALSE, ucp = TRUE)
 
-# 4.3 REMOVING NUMBERS
-CorpusResolution <- tm_map(CorpusResolution, removeNumbers)
-
-# 4.4 LEMMATIZING
+# 4.3 LEMMATIZING
 # e.g.
 lemmatize_words(c("run", "ran", "running"))
 lemmatize_words(c("african", "africa", "afric"))
@@ -202,7 +199,7 @@ lemmatize_strings(c("african", "africa", "afric"))
 # focus on lemmatize words
 CorpusResolution <- tm_map(CorpusResolution, content_transformer(lemmatize_strings))
 
-# 4.5 STOP-WORDS
+# 4.4 STOP-WORDS
 # creating custom stop words
 CustomStopwords <- c("unite", "union","distr","global","country","support","include",
                      "resolution", "right","organ","international","assembly","note","zone",
@@ -233,23 +230,24 @@ CustomStopwords <- c("unite", "union","distr","global","country","support","incl
 # removing stop words
 CorpusResolution <- tm_map(CorpusResolution, removeWords, c(stop_words$word, CustomStopwords))
 
-# 4.6 REGULAR EXPRESSIONS
+# 4.5 REGULAR EXPRESSIONS
 # create custom function to remove other misc characters
 TextPreprocessing <- function(x){
-  gsub("[^a-z ]","",x) # remove non alphabetic
-  gsub("\\<african\\>|\\<afric\\>", "africa",x)
-  gsub("www\\S+\\s*","",x) # remove URLs
-  gsub("[[:cntrl:]]","",x) # remove controls and special characters
-  gsub("\\_|-","",x) # remove special characters
-  gsub("^.$","",x) # remove words with only one letter
-  
+  gsub("www\\w+","",x) # remove URLs
+  gsub("\\W+"," ",x) # remove non alphabetic
+  gsub("\\<african\\>|\\<afric\\>", "africa",x) 
+  gsub("^.{1,3}$","",x) # remove words with only one letter
   gsub("^[[:space:]]*","",x) # remove leading white spaces
   gsub("[[:space:]]*$","",x) # remove trailing white spaces
   gsub(" +"," ",x) # remove extra white spaces
+  
 }
 # removing by using regular expressions
 CorpusResolution <- tm_map(CorpusResolution, TextPreprocessing)
 inspect(CorpusResolution[[50]])
+
+# 4.6 REMOVING NUMBERS
+CorpusResolution <- tm_map(CorpusResolution, removeNumbers)
 
 # 4.7 BACK TO CLEAN DATA FRAME
 TextDataFrame <- tibble(ResolutionFullTEXT = sapply(CorpusResolution, as.character))
@@ -262,8 +260,7 @@ ResolutionText$ResolutionFullTEXT <- TextDataFrame$ResolutionFullTEXT
 # 5. TOKENIZATION ----
 # focus on every words that are used
 TidyResolutionTextI <- ResolutionText %>%
-  unnest_tokens(word, ResolutionFullTEXT) %>%
-  filter(grepl("^\\w+$", ignore.case = T, word))
+  unnest_tokens(word, ResolutionFullTEXT)
 # focus on three words combination
 TidyResolutionTextIII <- ResolutionText %>%
 unnest_tokens(output = "word",input = ResolutionFullTEXT, token = "words", to = 3)
@@ -329,7 +326,7 @@ length(SentimentResolutionWord$word) / length(WordAppearance$word)
 # 38,82%
 # 8,17%
 # 4,44%
-# 10,12$
+# 10,12%
 
 SentimentWordCounts <- SentimentResolutionWord %>%
   group_by(sentiment) %>%
