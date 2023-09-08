@@ -95,6 +95,9 @@ library(topicmodels)
 root <- getwd()
 path.data <- file.path(root, "data", "raw")
 
+
+
+
 # 2. DATA LOADING  ----
 
 # 2.1 PATHS TO DATA & LOADING
@@ -129,6 +132,7 @@ colnames(ResolutionText) <- c("Document_ID", "YEAR", "Countries", "ResolutionTIT
 # Corpora: collections of documents containing natural language text
 CorpusResolution <- tm::Corpus(tm::VectorSource(ResolutionText$ResolutionFullTEXT))
 # Inspection of one 
+
 
 
 
@@ -181,6 +185,7 @@ CountryLength
 
 
 
+
 # 4. TEXT PRE-PROCESSING ----
 
 # 4.1 LOWER CASE
@@ -193,8 +198,8 @@ CorpusResolution <- tm_map(CorpusResolution, removePunctuation, preserve_intra_w
 # 4.3 LEMMATIZING
 # e.g.
 lemmatize_words(c("run", "ran", "running"))
-lemmatize_words(c("african", "africa", "afric"))
-lemmatize_strings(c("african", "africa", "afric"))
+lemmatize_words(c("african", "africa", "afric")) # just for strings containing one word
+lemmatize_strings(c("african", "africa", "afric")) #
 
 # focus on lemmatize words
 CorpusResolution <- tm_map(CorpusResolution, content_transformer(lemmatize_strings))
@@ -244,10 +249,10 @@ TextPreprocessing <- function(x){
 }
 # removing by using regular expressions
 CorpusResolution <- tm_map(CorpusResolution, TextPreprocessing)
-inspect(CorpusResolution[[50]])
 
 # 4.6 REMOVING NUMBERS
 CorpusResolution <- tm_map(CorpusResolution, removeNumbers)
+inspect(CorpusResolution[[50]])
 
 # 4.7 BACK TO CLEAN DATA FRAME
 TextDataFrame <- tibble(ResolutionFullTEXT = sapply(CorpusResolution, as.character))
@@ -265,6 +270,7 @@ TidyResolutionTextI <- ResolutionText %>%
 TidyResolutionTextIII <- ResolutionText %>%
 unnest_tokens(output = "word",input = ResolutionFullTEXT, token = "words", to = 3)
 # getting a data frame tokenized by total words used in the resolutions
+
 
 
 
@@ -358,6 +364,7 @@ SelectedWords <- Word_Year %>%
 
 
 
+
 # 7. MODELING ----
 
 # 7.1- Latent Dirichlet Allocation (Unsupervised Learning)
@@ -368,10 +375,22 @@ Train_IND <- sample(ncol(Resolution_DTM), size = SampleSize)
 TrainDATA <- Resolution_DTM[ ,Train_IND]
 TestDATA <- Resolution_DTM[ ,-Train_IND]
 
+# selecting the optimal number of topics by checking the perplexity of every number of topics
+# Perplexity: measure of how well a probability model fits to new data (lower value is better)
+Values <- c()
+for (i in 2:35){
+  lda_model <- LDA(TrainDATA, k = i, method = "Gibbs", control = list(iter = 25, seed = 1111))
+  Values <- c(Values, perplexity(lda_model, newdata = TestDATA))
+}
+plot(2:35, Values, main = "Perplexity for Topics", xlab = "Number of Topics",
+     ylab = "Perplexity")
+# RESULT: k = 
+
 LDA_Model <- LDA(TrainDATA, k = 5, method = "Gibbs", control = list(seed = 42))
   
 LDA_Model_BETA <- tidy(LDA_Model, matrix = "beta") # how related is the term to the topic
-LDA_Model_GAMMA <- tidy(LDA_Model, matrix = "gamma") # how much every topic make of document...
+LDA_Model_GAMMA <- tidy(LDA_Model, matrix = "gamma") # how much every topic make of document
+
 
 # checking top words appearances in topic 3
 LDA_Model_BETA %>%
@@ -384,6 +403,9 @@ LDA_Model_GAMMA %>%
   filter(topic == 3) %>%
   arrange(desc(gamma)) %>%
   select(term)
+
+
+
 
 # 8. VISUALIZATION ----
 
